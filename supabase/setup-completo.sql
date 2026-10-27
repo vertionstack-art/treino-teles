@@ -272,3 +272,7 @@ alter table public.workout_sessions add constraint workout_sessions_tipo_check
 
 alter table public.profiles add column if not exists peso_meta numeric(5,1);
 
+-- ===== supabase/migrations/0005_dieta.sql =====
+-- Alimentos escolhidos para a dieta gerada (as quantidades são recalculadas a partir da meta).
+alter table public.profiles add column if not exists dieta jsonb;
+

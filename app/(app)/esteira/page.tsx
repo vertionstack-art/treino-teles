@@ -89,7 +89,7 @@ export default function Esteira() {
         </div>
         <p className="note" style={{ margin: 0 }}>
           {km ? `≈ ${virgula(km)} km. ` : ""}
-          {estimado ? `≈ ${estimado} kcal (MET ${virgula(met)} × ${peso} kg × ${min} min). Se preencher o painel, vale o painel.` : "Registre seu peso em Corpo para estimar as calorias."}
+          {estimado ? `≈ ${estimado} kcal (MET ${virgula(met)} × ${peso} kg × ${min} min). Se preencher o painel, vale o painel.` : "Registre seu peso em Mais → Peso para estimar as calorias."}
         </p>
         <button className="btn" onClick={salvar}>Salvar cardio</button>
       </section>

@@ -2,196 +2,105 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { fmtDataCompleta, fmtNum } from "@/lib/datas";
-import { enviar, linkAssinado, prepararArquivo } from "@/lib/arquivo";
+import { fmtCurta, fmtNum, hojeISO } from "@/lib/datas";
 import Grafico from "@/components/grafico";
 
-type Exame = {
-  id: string; data: string; peso: number | null; gordura_kg: number | null; pgc: number | null; mme: number | null; mlg: number | null;
-  imc: number | null; tmb: number | null; agua_l: number | null; proteina_kg: number | null; minerais_kg: number | null; rcq: number | null; pdf_path: string | null;
-};
-const METRICAS: { k: keyof Exame; nome: string; un: string; casas?: number }[] = [
-  { k: "peso", nome: "Peso", un: "kg" },
-  { k: "gordura_kg", nome: "Gordura", un: "kg" },
-  { k: "pgc", nome: "% gordura", un: "%" },
-  { k: "mme", nome: "Músculo (MME)", un: "kg" },
-  { k: "mlg", nome: "Massa magra", un: "kg" },
-  { k: "imc", nome: "IMC", un: "" },
-  { k: "tmb", nome: "TMB", un: "kcal", casas: 0 },
-];
-const CAMPOS: { k: keyof Exame; nome: string }[] = [
-  { k: "peso", nome: "Peso (kg)" }, { k: "gordura_kg", nome: "Gordura (kg)" }, { k: "pgc", nome: "% gordura" },
-  { k: "mme", nome: "MME (kg)" }, { k: "mlg", nome: "Massa livre de gordura (kg)" }, { k: "imc", nome: "IMC" },
-  { k: "tmb", nome: "TMB (kcal)" }, { k: "agua_l", nome: "Água (L)" }, { k: "proteina_kg", nome: "Proteína (kg)" },
-  { k: "minerais_kg", nome: "Minerais (kg)" }, { k: "rcq", nome: "Cintura-quadril" },
-];
-const num = (v: number | null | undefined) => (v == null ? null : Number(v));
-const magra = (e: Exame) => num(e.mlg) ?? (e.peso != null && e.gordura_kg != null ? Number(e.peso) - Number(e.gordura_kg) : null);
+// Pesagens ficam na tabela bioimpedance (só a coluna peso e o IMC calculado pela altura)
+type Pesagem = { id: string; data: string; peso: number | null };
 
-export default function Corpo() {
-  const [exames, setExames] = useState<Exame[]>([]);
-  const [metrica, setMetrica] = useState<keyof Exame>("peso");
+export default function Peso() {
+  const [pesagens, setPesagens] = useState<Pesagem[]>([]);
   const [perfil, setPerfil] = useState<{ altura_cm: number | null; peso_meta: number | null } | null>(null);
+  const [data, setData] = useState(hojeISO());
+  const [kg, setKg] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     const sb = createClient();
-    const [{ data }, { data: p }] = await Promise.all([
-      sb.from("bioimpedance").select("*").order("data"),
+    const [{ data: b }, { data: p }] = await Promise.all([
+      sb.from("bioimpedance").select("id, data, peso").not("peso", "is", null).order("data"),
       sb.from("profiles").select("altura_cm, peso_meta").maybeSingle(),
     ]);
-    setExames((data || []) as Exame[]);
+    setPesagens(((b || []) as Pesagem[]).map((x) => ({ ...x, peso: x.peso != null ? Number(x.peso) : null })));
     setPerfil(p ? { altura_cm: p.altura_cm != null ? Number(p.altura_cm) : null, peso_meta: p.peso_meta != null ? Number(p.peso_meta) : null } : null);
   }, []);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { carregar(); }, [carregar]);
 
-  // Alerta: massa magra caiu mais do que a gordura entre dois exames seguidos
-  const alertas = exames.slice(1).map((e, i) => {
-    const a = exames[i];
-    const dMagra = (magra(a) ?? 0) - (magra(e) ?? 0);
-    const dGord = Number(a.gordura_kg ?? 0) - Number(e.gordura_kg ?? 0);
-    return { de: a, para: e, dMagra, dGord, dMme: Number(a.mme ?? 0) - Number(e.mme ?? 0), alerta: dMagra > 0 && dMagra > dGord };
-  });
-  const ultimo = alertas[alertas.length - 1];
-  const m = METRICAS.find((x) => x.k === metrica)!;
-  const pontos = exames.filter((e) => e[metrica] != null).map((e) => ({ data: e.data, v: Number(e[metrica]) }));
-  const ult = exames[exames.length - 1];
-  const prim = exames[0];
+  const altura = perfil?.altura_cm ? perfil.altura_cm / 100 : null;
   const meta = perfil?.peso_meta ?? null;
-  const pesoAtual = [...exames].reverse().find((e) => e.peso != null)?.peso;
-  const pesoInicial = exames.find((e) => e.peso != null)?.peso;
+  const atual = pesagens[pesagens.length - 1]?.peso ?? null;
+  const inicial = pesagens[0]?.peso ?? null;
+  const perdeu = inicial != null && atual != null ? inicial - atual : 0;
+  // Média de perda por semana desde a primeira pesagem
+  const semanas = pesagens.length > 1 ? (new Date(pesagens[pesagens.length - 1].data).getTime() - new Date(pesagens[0].data).getTime()) / (7 * 86400000) : 0;
+  const ritmo = semanas >= 1 ? perdeu / semanas : null;
 
-  async function abrirLaudo(p: string) {
-    const u = await linkAssinado("laudos", p);
-    if (u) window.open(u, "_blank");
+  async function salvar() {
+    const p = parseFloat(kg.replace(",", "."));
+    if (!p) { setErro("Informe o peso em kg."); return; }
+    setErro(null);
+    const { error } = await createClient().from("bioimpedance").upsert(
+      { data, peso: p, imc: altura ? Math.round((p / (altura * altura)) * 10) / 10 : null },
+      { onConflict: "user_id,data" },
+    );
+    if (error) { setErro(error.message); return; }
+    setKg(""); carregar();
+  }
+  async function apagar(id: string) {
+    await createClient().from("bioimpedance").delete().eq("id", id);
+    carregar();
   }
 
   return (
     <main className="wrap">
       <header>
-        <h1>Corpo</h1>
-        <p className="sub">Peso e bioimpedância{perfil?.altura_cm ? ` · altura ${fmtNum(perfil.altura_cm)} cm` : ""}. Registre o peso sempre que se pesar.</p>
+        <h1>Peso</h1>
+        <p className="sub">Pese-se de manhã, em jejum, depois do banheiro. Uma vez por semana basta; o que importa é a tendência.</p>
       </header>
 
-      {ultimo?.alerta && (
-        <div className="alert danger">
-          <b>Massa magra caiu mais que a gordura.</b> Entre {fmtDataCompleta(ultimo.de.data)} e {fmtDataCompleta(ultimo.para.data)}: massa magra −{fmtNum(ultimo.dMagra, 1)} kg,
-          gordura −{fmtNum(ultimo.dGord, 1)} kg{ultimo.dMme > 0 ? `, músculo esquelético −${fmtNum(ultimo.dMme, 1)} kg` : ""}. Meta calórica moderada e proteína alta ajudam a preservar a massa magra.
-        </div>
-      )}
-
-      {meta && pesoAtual != null && (
+      {meta && atual != null && (
         <section className="card">
           <div className="between"><h2>Meta</h2><span className="chip">{fmtNum(meta)} kg</span></div>
           <div className="stats">
-            <div className="stat"><b>{fmtNum(pesoAtual, 1)}</b><span>Peso atual</span></div>
-            <div className="stat"><b>{fmtNum(Math.max(0, Number(pesoAtual) - meta), 1)}</b><span>Faltam kg</span></div>
-            <div className="stat"><b>{fmtNum(Math.max(0, Number(pesoInicial) - Number(pesoAtual)), 1)}</b><span>Já perdeu kg</span></div>
+            <div className="stat"><b>{fmtNum(atual, 1)}</b><span>Peso atual</span></div>
+            <div className="stat"><b>{fmtNum(Math.max(0, atual - meta), 1)}</b><span>Faltam kg</span></div>
+            <div className="stat"><b>{fmtNum(Math.max(0, perdeu), 1)}</b><span>Já perdeu kg</span></div>
           </div>
-          {pesoInicial != null && Number(pesoInicial) > meta && (
-            <div className="bar"><i style={{ width: Math.min(100, Math.max(0, ((Number(pesoInicial) - Number(pesoAtual)) / (Number(pesoInicial) - meta)) * 100)) + "%" }} /></div>
+          {inicial != null && inicial > meta && (
+            <div className="bar"><i style={{ width: Math.min(100, Math.max(0, (perdeu / (inicial - meta)) * 100)) + "%" }} /></div>
           )}
-          <p className="note" style={{ margin: 0 }}>Ritmo saudável: 0,5 a 1 kg por semana. Se a força cair nos treinos ou a massa magra cair na bioimpedância, suba um pouco as calorias.</p>
-        </section>
-      )}
-
-      {ult && prim && ult.gordura_kg != null && (
-        <section className="card">
-          <div className="between"><h2>Último exame</h2><span className="chip">{fmtDataCompleta(ult.data)}</span></div>
-          <div className="stats">
-            <div className="stat"><b>{fmtNum(ult.peso, 1)}</b><span>Peso kg</span></div>
-            <div className="stat"><b>{fmtNum(ult.pgc, 1)}%</b><span>Gordura</span></div>
-            <div className="stat"><b>{fmtNum(ult.mme, 1)}</b><span>MME kg</span></div>
-          </div>
           <p className="note" style={{ margin: 0 }}>
-            Desde {fmtDataCompleta(prim.data)}: {fmtNum(Number(prim.peso) - Number(ult.peso), 1)} kg a menos, {fmtNum(Number(prim.gordura_kg) - Number(ult.gordura_kg), 1)} kg de gordura a menos
-            {ult.tmb ? ` · TMB ${ult.tmb} kcal` : ""}{ult.agua_l ? ` · água ${fmtNum(ult.agua_l, 1)} L` : ""}.
+            {ritmo != null ? `Média de ${fmtNum(ritmo, 1)} kg por semana. ` : ""}
+            Ritmo saudável: 0,5 a 1 kg por semana. Se a força cair nos treinos, suba um pouco as calorias.
+            {altura ? ` IMC atual ${fmtNum(atual / (altura * altura), 1)}.` : ""}
           </p>
         </section>
       )}
 
       <section className="card">
-        <h2>Evolução</h2>
-        <div className="chips">
-          {METRICAS.map((x) => (
-            <button key={x.k} className={"chip" + (metrica === x.k ? "" : " ok")} style={{ border: 0, cursor: "pointer", opacity: metrica === x.k ? 1 : 0.7 }} onClick={() => setMetrica(x.k)}>{x.nome}</button>
-          ))}
+        <h2>Registrar peso</h2>
+        <div className="grid2">
+          <div className="field"><label htmlFor="pd">Data</label><input id="pd" type="date" value={data} onChange={(e) => setData(e.target.value)} /></div>
+          <div className="field"><label htmlFor="pk">Peso (kg)</label><input id="pk" inputMode="decimal" value={kg} onChange={(e) => setKg(e.target.value)} placeholder={atual != null ? String(atual).replace(".", ",") : ""} /></div>
         </div>
-        <Grafico pontos={pontos} unidade={m.un} casas={m.casas ?? 1} />
+        {erro && <p className="msg err">{erro}</p>}
+        <button className="btn" onClick={salvar}>Salvar peso</button>
       </section>
 
       <section className="card">
-        <h2>Exames</h2>
-        <div className="tbl">
-          <table>
-            <thead><tr><th>Data</th><th>Peso</th><th>Gord. kg</th><th>%G</th><th>MME</th><th>Magra</th><th>IMC</th><th></th></tr></thead>
-            <tbody>
-              {[...exames].reverse().map((e) => {
-                const al = alertas.find((a) => a.para.id === e.id);
-                return (
-                  <tr key={e.id}>
-                    <td>{e.data.split("-").reverse().join("/")}</td>
-                    <td>{fmtNum(e.peso, 1)}</td><td>{fmtNum(e.gordura_kg, 1)}</td><td>{fmtNum(e.pgc, 1)}</td>
-                    <td>{fmtNum(e.mme, 1)}</td>
-                    <td className={al?.alerta ? "down" : ""}>{fmtNum(magra(e), 1)}</td>
-                    <td>{fmtNum(e.imc, 1)}</td>
-                    <td>{e.pdf_path && <button className="x" onClick={() => abrirLaudo(e.pdf_path!)}>Laudo</button>}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <h2>Evolução</h2>
+        <Grafico pontos={pesagens.filter((p) => p.peso != null).map((p) => ({ data: p.data, v: p.peso! }))} unidade="kg" casas={1} />
+        <div className="hist">
+          {[...pesagens].reverse().map((p) => (
+            <div key={p.id}>
+              <span>{fmtCurta(p.data)}</span>
+              <span>{fmtNum(p.peso, 1)} kg <button className="x" aria-label="Apagar" onClick={() => apagar(p.id)}>×</button></span>
+            </div>
+          ))}
+          {!pesagens.length && <p className="note" style={{ margin: 0 }}>Nenhuma pesagem ainda.</p>}
         </div>
-        <p className="note" style={{ margin: 0 }}>Em vermelho: exame em que a massa magra caiu mais que a gordura.</p>
       </section>
-
-      <NovoExame onSaved={carregar} />
     </main>
-  );
-}
-
-function NovoExame({ onSaved }: { onSaved: () => void }) {
-  const [arq, setArq] = useState<{ blob: Blob; ext: string } | null>(null);
-  const [form, setForm] = useState<Record<string, string>>({ data: "" });
-  const [busy, setBusy] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-
-  async function escolher(f?: File) {
-    if (!f) { setArq(null); return; }
-    const p = await prepararArquivo(f);
-    setArq({ blob: p.blob, ext: p.ext });
-  }
-
-  async function salvar() {
-    if (!form.data) { setErro("Informe a data do exame."); return; }
-    setBusy(true);
-    const path = arq ? await enviar("laudos", arq.blob, arq.ext) : null;
-    const row: Record<string, string | number | null> = { data: form.data, pdf_path: path };
-    for (const c of CAMPOS) row[c.k] = form[c.k] ? Number(String(form[c.k]).replace(",", ".")) : null;
-    const { error } = await createClient().from("bioimpedance").upsert(row, { onConflict: "user_id,data" });
-    setBusy(false);
-    if (error) { setErro(error.message); return; }
-    setArq(null); setForm({ data: "" }); onSaved();
-  }
-
-  return (
-    <section className="card">
-      <h2>Novo exame</h2>
-      <div className="field"><label htmlFor="dt">Data do exame</label><input id="dt" type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} /></div>
-      <div className="grid2">
-        {CAMPOS.map((c) => (
-          <div className="field" key={c.k}>
-            <label htmlFor={"c" + c.k}>{c.nome}</label>
-            <input id={"c" + c.k} inputMode="decimal" value={form[c.k] || ""} onChange={(e) => setForm({ ...form, [c.k]: e.target.value })} />
-          </div>
-        ))}
-      </div>
-      <div className="field">
-        <label htmlFor="laudo">Laudo (opcional, só para guardar)</label>
-        <input id="laudo" type="file" accept="application/pdf,image/*" onChange={(e) => escolher(e.target.files?.[0])} />
-      </div>
-      <button className="btn" onClick={salvar} disabled={busy}>{busy ? "Salvando…" : "Salvar"}</button>
-      {erro && <p className="msg err">{erro}</p>}
-    </section>
   );
 }

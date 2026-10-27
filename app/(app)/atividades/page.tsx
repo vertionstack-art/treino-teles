@@ -58,7 +58,7 @@ function Atividades() {
         {JIU_HORARIOS[diaSemana(data)] ? (
           <HorariosJiu data={data} aulas={aulasDoDia} peso={peso} onChange={carregar} />
         ) : <p className="note" style={{ margin: 0 }}>Sem aula de jiu-jitsu em {fmtCurta(data)}. Escolha uma segunda, quarta ou sexta.</p>}
-        {!peso && <p className="small muted" style={{ margin: 0 }}>Registre seu peso em Corpo para estimar as calorias das aulas.</p>}
+        {!peso && <p className="small muted" style={{ margin: 0 }}>Registre seu peso em Mais → Peso para estimar as calorias das aulas.</p>}
       </section>
 
       <section className="card">

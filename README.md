@@ -10,8 +10,8 @@ Meta: sair de 104 kg para 80 kg ganhando massa e força.
 | Hoje | Atividades do dia (musculação, jiu-jitsu com os horários para marcar, esteira), calorias (consumo, meta ajustada, gasto das atividades), saldo da semana. Toque num dia para ver detalhes ou ajustar só aquela data. |
 | Treino | Musculação A (peito), B (costas), C (bíceps e tríceps), D (perna), E (ombro) em fila. Séries com carga e reps, timer com bipe, wake lock, "última vez", vídeo. |
 | Esteira | Registro do cardio (minutos, velocidade, inclinação, kcal do painel ou estimada por MET × peso), resumo da semana. |
-| Nutrição | Registro pela busca na TACO ou manual, meta diária e semanal com redistribuição (máx. 15%/dia). |
-| Mais → Corpo | Peso e bioimpedância: meta de peso, tabela, gráficos, alerta quando a massa magra cai mais que a gordura, laudo anexado. |
+| Nutrição | Registro pela busca na TACO ou manual, meta diária e semanal com redistribuição (máx. 15%/dia). Minha dieta: cardápio em gramas gerado da meta (arroz, feijão, frango e salada ou outras opções). |
+| Mais → Peso | Pesagens, meta de peso (104 → 80 kg), ritmo por semana e gráfico. |
 | Mais → Protocolo | Suplementos e manipulados (registro apenas), aviso de recompra, receitas. |
 | Mais → Atividades | Presença no jiu-jitsu por horário (seg/qua 10h, 19h, 21h; sex 10h, 20h30) e histórico. |
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { addDias, diasDaSemana, fmtCurta, fmtLonga, hojeISO } from "@/lib/datas";
@@ -26,17 +27,18 @@ export default function Nutricao() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [consumo, setConsumo] = useState<Record<string, number>>({});
-  const [ref, setRef] = useState<{ tmb: number | null; mlg: number | null; peso: number | null }>({ tmb: null, mlg: null, peso: null });
+  const [ref, setRef] = useState<{ peso: number | null; meta: number | null }>({ peso: null, meta: null });
   const [carregado, setCarregado] = useState(false);
   const dias = useMemo(() => diasDaSemana(dia), [dia]);
 
   const carregar = useCallback(async () => {
     const sb = createClient();
     const ini = dias[0], fim = dias[6];
-    const [mt, fl, bio] = await Promise.all([
+    const [mt, fl, bio, pf] = await Promise.all([
       sb.from("nutrition_targets").select("*").lte("vigencia_inicio", dia).order("vigencia_inicio", { ascending: false }).limit(1).maybeSingle(),
       sb.from("foods_log").select("*").gte("data_hora", ini + "T03:00:00Z").lt("data_hora", addDias(fim, 1) + "T03:00:00Z").order("data_hora"),
-      sb.from("bioimpedance").select("tmb, mlg, peso").order("data", { ascending: false }).limit(1).maybeSingle(),
+      sb.from("bioimpedance").select("peso").order("data", { ascending: false }).limit(1).maybeSingle(),
+      sb.from("profiles").select("peso_meta").maybeSingle(),
     ]);
     setMeta(mt.data as Meta | null);
     const regs = (fl.data || []) as Registro[];
@@ -44,7 +46,7 @@ export default function Nutricao() {
     for (const f of regs) { const d = hojeISO(new Date(f.data_hora)); c[d] = (c[d] || 0) + Number(f.kcal || 0); }
     setConsumo(c);
     setRegistros(regs.filter((f) => hojeISO(new Date(f.data_hora)) === dia));
-    setRef({ tmb: bio.data?.tmb ?? null, mlg: bio.data?.mlg ?? null, peso: bio.data?.peso ?? null });
+    setRef({ peso: bio.data?.peso != null ? Number(bio.data.peso) : null, meta: pf.data?.peso_meta != null ? Number(pf.data.peso_meta) : null });
     setCarregado(true);
   }, [dia, dias]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -95,6 +97,11 @@ export default function Nutricao() {
       ) : carregado ? (
         <MetaForm ref0={ref} onSaved={carregar} aberto />
       ) : null}
+
+      <Link className="card" href="/nutricao/dieta" style={{ textDecoration: "none", color: "var(--fg)" }}>
+        <b>Minha dieta</b>
+        <span className="small muted">Cardápio do dia em gramas para bater a meta (arroz, feijão, frango e salada ou outras opções).</span>
+      </Link>
 
       <NovoRegistro dia={dia} onSaved={carregar} />
 
@@ -294,11 +301,13 @@ function NovoRegistro({ dia, onSaved }: { dia: string; onSaved: () => void }) {
   );
 }
 
-function MetaForm({ ref0, atual, onSaved, aberto }: { ref0: { tmb: number | null; mlg: number | null; peso: number | null }; atual?: Meta; onSaved: () => void; aberto?: boolean }) {
-  // Ponto de partida: TMB × 1,55 menos 500 kcal; proteína 2 g por kg de massa livre de gordura
-  const sugKcal = ref0.tmb ? Math.round((ref0.tmb * 1.55 - 500) / 50) * 50 : 2400;
-  const sugP = ref0.mlg ? Math.round(ref0.mlg * 2) : 180;
-  const sugG = ref0.peso ? Math.round(ref0.peso * 0.8) : 80;
+function MetaForm({ ref0, atual, onSaved, aberto }: { ref0: { peso: number | null; meta: number | null }; atual?: Meta; onSaved: () => void; aberto?: boolean }) {
+  // Ponto de partida para emagrecer mantendo a força: ~22 kcal por kg do peso atual (déficit moderado),
+  // proteína 2,2 g e gordura 0,8 g por kg do peso que quer atingir; o resto em carboidrato.
+  const alvo = ref0.meta ?? ref0.peso;
+  const sugKcal = ref0.peso ? Math.round((ref0.peso * 22) / 50) * 50 : 2400;
+  const sugP = alvo ? Math.round(alvo * 2.2) : 180;
+  const sugG = alvo ? Math.round(alvo * 0.8) : 70;
   const sugC = Math.max(0, Math.round((sugKcal - sugP * 4 - sugG * 9) / 4));
   const [kcal, setKcal] = useState(String(atual?.kcal_dia ?? sugKcal));
   const [p, setP] = useState(String(atual?.prot_g ?? sugP));
@@ -316,7 +325,7 @@ function MetaForm({ ref0, atual, onSaved, aberto }: { ref0: { tmb: number | null
       <div className="in" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {!atual && (
           <p className="note" style={{ margin: 0 }}>
-            Valores pré-preenchidos como ponto de partida{ref0.tmb ? ` (TMB ${ref0.tmb} kcal do último exame)` : ""}. Ajuste com seu nutricionista ou treinador.
+            Valores pré-preenchidos como ponto de partida{ref0.peso ? ` (${ref0.peso} kg atuais${ref0.meta ? `, meta de ${ref0.meta} kg` : ""})` : ""}. Ajuste com seu nutricionista ou treinador.
           </p>
         )}
         <div className="grid2">
