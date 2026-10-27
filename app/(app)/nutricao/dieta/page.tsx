@@ -36,13 +36,13 @@ export default function Dieta() {
     const nova = { ...esc, [k]: v };
     setEsc(nova); setMsg(null);
     const sb = createClient();
-    const { data: { user } } = await sb.auth.getUser();
+    const user = (await sb.auth.getSession()).data.session?.user;
     if (user) await sb.from("profiles").update({ dieta: nova }).eq("id", user.id);
   }
   async function simples() {
     setEsc(SIMPLES); setMsg(null);
     const sb = createClient();
-    const { data: { user } } = await sb.auth.getUser();
+    const user = (await sb.auth.getSession()).data.session?.user;
     if (user) await sb.from("profiles").update({ dieta: SIMPLES }).eq("id", user.id);
   }
 

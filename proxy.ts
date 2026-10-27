@@ -66,7 +66,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Tudo, exceto arquivos estáticos, ícones e manifesto do PWA
-    "/((?!_next/static|_next/image|icon|apple-icon|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // Tudo, exceto arquivos estáticos, ícones, manifesto e service worker do PWA
+    "/((?!_next/static|_next/image|icon|apple-icon|manifest.webmanifest|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
