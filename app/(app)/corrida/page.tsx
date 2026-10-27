@@ -83,7 +83,7 @@ export default function Corrida() {
     <main className="wrap">
       <header>
         <h1>Corrida</h1>
-        <p className="sub">Plano da semana, feedback de dor e corridas importadas do Strava.</p>
+        <p className="sub">Plano da semana, feedback de dor e corridas registradas.</p>
       </header>
 
       {msg && <p className="msg ok">{msg}</p>}
@@ -172,7 +172,7 @@ export default function Corrida() {
               );
             })}
           </div>
-        ) : <p className="note" style={{ margin: 0 }}>Nenhuma corrida ainda. Conecte o Strava em Mais → Strava ou registre abaixo.</p>}
+        ) : <p className="note" style={{ margin: 0 }}>Nenhuma corrida ainda. Registre abaixo.</p>}
       </section>
 
       <NovaCorrida onSaved={carregar} />
@@ -238,7 +238,7 @@ function NovaCorrida({ onSaved }: { onSaved: () => void }) {
     <details className="card">
       <summary><h2>Registrar corrida</h2></summary>
       <div className="in" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <p className="note" style={{ margin: 0 }}>Use quando a corrida não vier pelo Strava.</p>
+        <p className="note" style={{ margin: 0 }}>Registre cada corrida feita.</p>
         <div className="grid3">
           <div className="field"><label htmlFor="cd">Data</label><input id="cd" type="date" value={data} onChange={(e) => setData(e.target.value)} /></div>
           <div className="field"><label htmlFor="ck">Km</label><input id="ck" inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} /></div>

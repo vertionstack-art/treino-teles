@@ -10,7 +10,7 @@ const TABS = [
   { href: "/nutricao", label: "Nutrição", ic: "N" },
   { href: "/mais", label: "Mais", ic: "+" },
 ];
-const MAIS = ["/mais", "/corpo", "/protocolo", "/atividades", "/strava", "/perfil"];
+const MAIS = ["/mais", "/corpo", "/protocolo", "/atividades", "/perfil"];
 
 export default function Tabbar() {
   const path = usePathname();

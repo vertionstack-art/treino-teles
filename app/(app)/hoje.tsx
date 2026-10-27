@@ -106,7 +106,7 @@ export default function Hoje() {
             <div className="stats">
               <div className="stat"><b>{consumidoHoje}</b><span>Consumidas</span></div>
               <div className="stat"><b>{semana.metaHoje}</b><span>Meta hoje</span></div>
-              <div className="stat"><b>{gastoHoje || "–"}</b><span>Gasto Garmin</span></div>
+              <div className="stat"><b>{gastoHoje || "–"}</b><span>Gasto atividades</span></div>
             </div>
             <div className={"bar" + (consumidoHoje > semana.metaHoje ? " over" : "")}>
               <i style={{ width: Math.min(100, (consumidoHoje / semana.metaHoje) * 100) + "%" }} />

@@ -203,17 +203,9 @@ export default function Treino() {
       volume_kg: Math.round(vol), inicio: new Date(session.start).toISOString(),
       nome: `${DAYNAME[session.d]} · ${session.l === "rua" ? "Rua" : "Prédio"} · ${DURNAME[session.t]}`,
     };
-    // Se o Strava já mandou a musculação de hoje, completa aquela linha em vez de duplicar
-    const { data: doStrava } = await supabase
-      .from("workout_sessions").select("id").eq("data", data).eq("tipo", "musculacao").eq("fonte", "strava").limit(1).maybeSingle();
     let sessionId: string | null = null;
-    if (doStrava) {
-      const { error } = await supabase.from("workout_sessions").update({ ...dados, fonte: "app" }).eq("id", doStrava.id);
-      if (!error) sessionId = doStrava.id;
-    } else {
-      const { data: nova, error } = await supabase.from("workout_sessions").insert({ ...dados, fonte: "app" }).select("id").single();
-      if (!error) sessionId = nova.id;
-    }
+    const { data: nova, error } = await supabase.from("workout_sessions").insert({ ...dados, fonte: "app" }).select("id").single();
+    if (!error) sessionId = nova.id;
     if (!sessionId) { setSalvando(false); toast("Não consegui salvar. Verifique a internet e tente de novo.", 4000); return; }
     if (linhas.length) {
       const { error } = await supabase.from("workout_sets").insert(linhas.map((l) => ({ ...l, session_id: sessionId })));
@@ -355,7 +347,6 @@ export default function Treino() {
               <div className="stat"><b>{summary.sets}</b><span>Séries</span></div>
               <div className="stat"><b>{summary.vol.toLocaleString("pt-BR")}</b><span>kg levantados</span></div>
             </div>
-            <p className="note" style={{ margin: 0 }}>Calorias e frequência cardíaca chegam pelo Strava quando o Garmin sincronizar a atividade de musculação.</p>
             <button className="btn ghost small" onClick={() => setSummary(null)}>Fechar</button>
           </div>
         )}
@@ -462,7 +453,7 @@ export default function Treino() {
           <div className="in hist">
             {hist.length ? hist.map((h) => (
               <div key={h.id}>
-                <span>{fmtCurta(h.data)} · {h.plano_dia ? DAYSHORT[h.plano_dia] || h.plano_dia : "Strava"}{h.local === "predio" ? " · Prédio" : h.local === "rua" ? " · Rua" : ""}</span>
+                <span>{fmtCurta(h.data)} · {h.plano_dia ? DAYSHORT[h.plano_dia] || h.plano_dia : "Treino"}{h.local === "predio" ? " · Prédio" : h.local === "rua" ? " · Rua" : ""}</span>
                 <span>{fmtDuracao(h.duracao_s)} · {h.series ?? "–"} séries · {(h.volume_kg ?? 0).toLocaleString("pt-BR")} kg{h.kcal ? ` · ${h.kcal} kcal` : ""}</span>
               </div>
             )) : <p className="note" style={{ margin: 0 }}>Nenhum treino salvo ainda. Toque em Iniciar treino e, no fim, em Finalizar.</p>}

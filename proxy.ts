@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Rotas abertas sem login
-const PUBLIC = ["/login", "/auth/", "/api/strava/webhook"];
+const PUBLIC = ["/login", "/auth/"];
 
 // E-mails autorizados (vírgula). Vazio = qualquer conta do Supabase entra.
 const ALLOWED = (process.env.ALLOWED_EMAILS || "")

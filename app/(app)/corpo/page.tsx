@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fmtDataCompleta, fmtNum } from "@/lib/datas";
-import { enviar, linkAssinado, prepararArquivo, type Midia } from "@/lib/arquivo";
+import { enviar, linkAssinado, prepararArquivo } from "@/lib/arquivo";
 import Grafico from "@/components/grafico";
 
 type Exame = {
@@ -127,37 +127,19 @@ export default function Corpo() {
 }
 
 function NovoExame({ onSaved }: { onSaved: () => void }) {
-  const [arq, setArq] = useState<{ midia: Midia; blob: Blob; ext: string; nome: string } | null>(null);
-  const [form, setForm] = useState<Record<string, string> | null>(null);
-  const [obs, setObs] = useState("");
+  const [arq, setArq] = useState<{ blob: Blob; ext: string } | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({ data: "" });
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   async function escolher(f?: File) {
-    if (!f) return;
-    setErro(null); setForm(null);
+    if (!f) { setArq(null); return; }
     const p = await prepararArquivo(f);
-    if (p.midia.data.length > 4_000_000) { setErro("Arquivo grande demais. Tire uma foto do laudo em vez do PDF."); return; }
-    setArq({ ...p, nome: f.name });
-  }
-
-  async function ler() {
-    if (!arq) return;
-    setBusy(true); setErro(null);
-    try {
-      const r = await fetch("/api/ia/bioimpedancia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ arquivo: arq.midia }) });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.erro || "Falha na leitura");
-      const f: Record<string, string> = { data: j.data || "" };
-      for (const c of CAMPOS) f[c.k] = j[c.k] != null ? String(j[c.k]) : "";
-      if (!f.mlg && f.peso && f.gordura_kg) f.mlg = String(Math.round((Number(f.peso) - Number(f.gordura_kg)) * 10) / 10);
-      setForm(f); setObs(j.observacao || "");
-    } catch (e) { setErro((e as Error).message); }
-    setBusy(false);
+    setArq({ blob: p.blob, ext: p.ext });
   }
 
   async function salvar() {
-    if (!form?.data) { setErro("Informe a data do exame."); return; }
+    if (!form.data) { setErro("Informe a data do exame."); return; }
     setBusy(true);
     const path = arq ? await enviar("laudos", arq.blob, arq.ext) : null;
     const row: Record<string, string | number | null> = { data: form.data, pdf_path: path };
@@ -165,34 +147,26 @@ function NovoExame({ onSaved }: { onSaved: () => void }) {
     const { error } = await createClient().from("bioimpedance").upsert(row, { onConflict: "user_id,data" });
     setBusy(false);
     if (error) { setErro(error.message); return; }
-    setArq(null); setForm(null); onSaved();
+    setArq(null); setForm({ data: "" }); onSaved();
   }
 
   return (
     <section className="card">
       <h2>Novo exame</h2>
-      <p className="note" style={{ margin: 0 }}>Envie o laudo (PDF ou foto). A IA lê os campos e você confere antes de salvar.</p>
+      <div className="field"><label htmlFor="dt">Data do exame</label><input id="dt" type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} /></div>
+      <div className="grid2">
+        {CAMPOS.map((c) => (
+          <div className="field" key={c.k}>
+            <label htmlFor={"c" + c.k}>{c.nome}</label>
+            <input id={"c" + c.k} inputMode="decimal" value={form[c.k] || ""} onChange={(e) => setForm({ ...form, [c.k]: e.target.value })} />
+          </div>
+        ))}
+      </div>
       <div className="field">
-        <label htmlFor="laudo">Laudo</label>
+        <label htmlFor="laudo">Laudo (opcional, só para guardar)</label>
         <input id="laudo" type="file" accept="application/pdf,image/*" onChange={(e) => escolher(e.target.files?.[0])} />
       </div>
-      {arq && !form && <button className="btn" onClick={ler} disabled={busy}>{busy ? "Lendo laudo…" : "Ler com IA"}</button>}
-      {!form && <button className="link" onClick={() => setForm({ data: "" })}>Preencher na mão</button>}
-      {form && (
-        <>
-          {obs && <p className="msg ok">{obs}</p>}
-          <div className="field"><label htmlFor="dt">Data do exame</label><input id="dt" type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} /></div>
-          <div className="grid2">
-            {CAMPOS.map((c) => (
-              <div className="field" key={c.k}>
-                <label htmlFor={"c" + c.k}>{c.nome}</label>
-                <input id={"c" + c.k} inputMode="decimal" value={form[c.k] || ""} onChange={(e) => setForm({ ...form, [c.k]: e.target.value })} />
-              </div>
-            ))}
-          </div>
-          <button className="btn" onClick={salvar} disabled={busy}>{busy ? "Salvando…" : "Confirmar e salvar"}</button>
-        </>
-      )}
+      <button className="btn" onClick={salvar} disabled={busy}>{busy ? "Salvando…" : "Salvar"}</button>
       {erro && <p className="msg err">{erro}</p>}
     </section>
   );

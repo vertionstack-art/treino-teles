@@ -59,7 +59,7 @@ function Atividades() {
     <main className="wrap">
       <header>
         <h1>Atividades</h1>
-        <p className="sub">Muay thai (sem relógio, registro na mão) e presença no pilates. Tudo que chega do Strava também aparece aqui.</p>
+        <p className="sub">Muay thai (sem relógio, registro na mão) e presença no pilates.</p>
       </header>
       {msg && <p className="msg ok">{msg}</p>}
 
@@ -80,7 +80,7 @@ function Atividades() {
 
       <section className="card">
         <h2>Pilates</h2>
-        <p className="note" style={{ margin: 0 }}>Voll Pilates Vila Isabel, via Wellhub. A reserva abre 2 dias antes, a partir das 7h. Se usar o relógio, a aula chega pelo Strava e é vinculada à presença.</p>
+        <p className="note" style={{ margin: 0 }}>Voll Pilates Vila Isabel, via Wellhub. A reserva abre 2 dias antes, a partir das 7h.</p>
         <button className="btn ghost" onClick={salvarPilates}>Registrar presença em {fmtCurta(data)}</button>
       </section>
 
@@ -89,7 +89,7 @@ function Atividades() {
         <div className="hist">
           {sessoes.map((s) => (
             <div key={s.id}>
-              <span>{fmtCurta(s.data)} · {NOME_TIPO[s.tipo] || s.tipo}{s.fonte === "strava" ? " · Strava" : ""}</span>
+              <span>{fmtCurta(s.data)} · {NOME_TIPO[s.tipo] || s.tipo}</span>
               <span>
                 {fmtDuracao(s.duracao_s)}{s.distancia_m ? ` · ${(s.distancia_m / 1000).toFixed(1)} km` : ""}{s.kcal ? ` · ${s.kcal} kcal` : ""}{s.fc_media ? ` · FC ${s.fc_media}` : ""}
                 {s.fonte === "manual" && <button className="x" aria-label="Apagar" onClick={() => apagar(s.id)}>×</button>}

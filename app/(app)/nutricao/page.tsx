@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { addDias, diasDaSemana, fmtCurta, fmtLonga, hojeISO } from "@/lib/datas";
 import { CURTO_DIA } from "@/lib/semana";
 import { CORTE_MAX, REFEICOES, calcularSemana, refeicaoPorHora, type Meta } from "@/lib/nutricao";
-import { comprimirImagem, enviar, type Midia } from "@/lib/arquivo";
 import { buscar, carregarTaco, porGramas, type Taco } from "@/lib/taco";
 
 type Registro = { id: string; data_hora: string; refeicao: string | null; descricao: string; quantidade_g: number | null; kcal: number | null; prot_g: number | null; carb_g: number | null; gord_g: number | null; origem: string; confianca: string | null };
@@ -67,7 +66,7 @@ export default function Nutricao() {
     <main className="wrap">
       <header>
         <h1>Nutrição</h1>
-        <p className="sub">Registre por foto da tabela, foto do prato ou na mão. Objetivo: recomposição, com meta moderada e proteína alta.</p>
+        <p className="sub">Registre pela busca na TACO ou na mão. Objetivo: recomposição, com meta moderada e proteína alta.</p>
       </header>
 
       <div className="between">
@@ -157,23 +156,17 @@ export default function Nutricao() {
 }
 
 function NovoRegistro({ dia, onSaved }: { dia: string; onSaved: () => void }) {
-  const [modo, setModo] = useState<"busca" | "tabela" | "prato" | "manual">("busca");
+  const [modo, setModo] = useState<"busca" | "manual">("busca");
   const [taco, setTaco] = useState<Taco[]>([]);
   const [termo, setTermo] = useState("");
   const [recentes, setRecentes] = useState<Recente[]>([]);
-  const [foto, setFoto] = useState<{ midia: Midia; blob: Blob; url: string } | null>(null);
-  const [qtd, setQtd] = useState("");
-  const [unid, setUnid] = useState("g");
-  const [desc, setDesc] = useState("");
-  const [textoItens, setTextoItens] = useState("");
   const [itens, setItens] = useState<ItemEd[] | null>(null);
-  const [info, setInfo] = useState<{ confianca: string; observacao: string } | null>(null);
   const [refeicao, setRefeicao] = useState(refeicaoPorHora(new Date().getHours()));
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   function limpar() {
-    setFoto(null); setQtd(""); setDesc(""); setTextoItens(""); setItens(null); setInfo(null); setErro(null); setTermo("");
+    setItens(null); setErro(null); setTermo("");
   }
 
   // TACO carregada uma vez; recentes = últimos alimentos registrados pela busca (com o peso usado)
@@ -197,47 +190,17 @@ function NovoRegistro({ dia, onSaved }: { dia: string; onSaved: () => void }) {
   const resultados = useMemo(() => buscar(taco, termo), [taco, termo]);
   const adicionar = (it: ItemEd) => { setItens((l) => [...(l || []), it]); setTermo(""); };
 
-  async function escolherFoto(f: File | undefined) {
-    if (!f) return;
-    const { midia, blob } = await comprimirImagem(f);
-    setFoto({ midia, blob, url: URL.createObjectURL(blob) });
-  }
-
-  async function ler() {
-    setBusy(true); setErro(null);
-    try {
-      const r = await fetch("/api/ia/nutricao", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(modo === "tabela"
-          ? { modo, imagem: foto?.midia, quantidade: n(qtd), unidade: unid, descricao: desc }
-          : { modo, imagem: foto?.midia ?? null, itens: textoItens }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.erro || "Falha na leitura");
-      setItens(j.itens.map((i: Record<string, number | string>) => ({
-        descricao: String(i.descricao), quantidade_g: String(r0(Number(i.quantidade_g))), kcal: String(r0(Number(i.kcal))),
-        prot_g: String(Math.round(Number(i.prot_g) * 10) / 10), carb_g: String(Math.round(Number(i.carb_g) * 10) / 10), gord_g: String(Math.round(Number(i.gord_g) * 10) / 10),
-      })));
-      setInfo({ confianca: j.confianca, observacao: j.observacao });
-    } catch (e) {
-      setErro((e as Error).message);
-    }
-    setBusy(false);
-  }
-
   async function salvar() {
-    const lista = (modo === "manual" ? itens ?? [] : itens ?? []).filter((i) => i.descricao && n(i.kcal) >= 0);
+    const lista = (itens ?? []).filter((i) => i.descricao && n(i.kcal) >= 0);
     if (!lista.length) return;
     setBusy(true);
-    const path = foto ? await enviar("fotos", foto.blob, "jpg") : null;
     // Horário: agora, se for hoje; meio-dia, se for outro dia
     const quando = dia === hojeISO() ? new Date().toISOString() : new Date(dia + "T15:00:00Z").toISOString();
-    const origem = modo === "busca" ? "taco" : modo === "tabela" ? "foto_tabela" : modo === "prato" && foto ? "foto_prato" : "manual";
+    const origem = modo === "busca" ? "taco" : "manual";
     const { error } = await createClient().from("foods_log").insert(lista.map((i) => ({
       data_hora: quando, refeicao, descricao: i.descricao, quantidade_g: n(i.quantidade_g) || null,
       kcal: n(i.kcal), prot_g: n(i.prot_g), carb_g: n(i.carb_g), gord_g: n(i.gord_g),
-      origem, foto_path: path, confianca: modo === "manual" || modo === "busca" ? null : info?.confianca ?? null,
+      origem,
     })));
     setBusy(false);
     if (error) { setErro("Não consegui salvar: " + error.message); return; }
@@ -261,8 +224,6 @@ function NovoRegistro({ dia, onSaved }: { dia: string; onSaved: () => void }) {
       <h2>Adicionar</h2>
       <div className="seg" role="group" aria-label="Como registrar">
         <button aria-pressed={modo === "busca"} onClick={() => { setModo("busca"); limpar(); }}>Buscar<small>TACO</small></button>
-        <button aria-pressed={modo === "tabela"} onClick={() => { setModo("tabela"); limpar(); }}>Foto da<small>tabela</small></button>
-        <button aria-pressed={modo === "prato"} onClick={() => { setModo("prato"); limpar(); }}>Foto do<small>prato</small></button>
         <button aria-pressed={modo === "manual"} onClick={() => { setModo("manual"); limpar(); setItens([vazio()]); }}>Na<small>mão</small></button>
       </div>
 
@@ -285,7 +246,7 @@ function NovoRegistro({ dia, onSaved }: { dia: string; onSaved: () => void }) {
                   <span className="r">{t.kcal} kcal<small>P {t.prot} · C {t.carb} · G {t.gord}</small></span>
                 </button>
               ))}
-              {!resultados.length && <p className="note" style={{ margin: 0 }}>Nada na TACO com esse nome. Tente outra palavra, use a foto ou registre na mão.</p>}
+              {!resultados.length && <p className="note" style={{ margin: 0 }}>Nada na TACO com esse nome. Tente outra palavra ou registre na mão.</p>}
             </div>
           )}
           {!termo && recentes.length > 0 && (
@@ -305,45 +266,8 @@ function NovoRegistro({ dia, onSaved }: { dia: string; onSaved: () => void }) {
         </>
       )}
 
-      {(modo === "tabela" || modo === "prato") && !itens && (
-        <>
-          <div className="field">
-            <label htmlFor="foto">{modo === "tabela" ? "Foto da tabela nutricional" : "Foto do prato (opcional se descrever)"}</label>
-            <input id="foto" type="file" accept="image/*" onChange={(e) => escolherFoto(e.target.files?.[0])} />
-          </div>
-          {foto && <img className="photo" src={foto.url} alt="Foto escolhida" />}
-          {modo === "tabela" ? (
-            <>
-              <div className="field">
-                <label htmlFor="desc">Produto (opcional)</label>
-                <input id="desc" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Ex.: iogurte natural" />
-              </div>
-              <div className="grid2">
-                <div className="field"><label htmlFor="qtd">Quanto consumiu</label><input id="qtd" inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} /></div>
-                <div className="field"><label htmlFor="un">Unidade</label><select id="un" value={unid} onChange={(e) => setUnid(e.target.value)}><option value="g">gramas</option><option value="ml">ml</option><option value="porções">porções</option></select></div>
-              </div>
-            </>
-          ) : (
-            <div className="field">
-              <label htmlFor="itens">Itens e pesos</label>
-              <textarea id="itens" value={textoItens} onChange={(e) => setTextoItens(e.target.value)} placeholder="Ex.: arroz 150 g, feijão 100 g, frango grelhado 120 g, salada" />
-            </div>
-          )}
-          {erro && <p className="msg err">{erro}</p>}
-          <button className="btn" onClick={ler} disabled={busy || (modo === "tabela" ? !foto || !n(qtd) : !foto && !textoItens)}>
-            {busy ? "Lendo…" : "Ler com IA"}
-          </button>
-        </>
-      )}
-
       {itens && (
         <>
-          {info && (
-            <p className="note" style={{ margin: 0 }}>
-              <span className={"chip" + (info.confianca === "alta" ? " ok" : info.confianca === "baixa" ? " warn" : "")}>Confiança {info.confianca}</span>{" "}
-              Estimativa aproximada; confira e ajuste. {info.observacao}
-            </p>
-          )}
           {itens.map((i, k) => (
             <div key={k} className="card" style={{ padding: 12 }}>
               <div className="field"><label>Alimento</label><input value={i.descricao} onChange={(e) => editar(k, "descricao", e.target.value)} /></div>
@@ -363,7 +287,7 @@ function NovoRegistro({ dia, onSaved }: { dia: string; onSaved: () => void }) {
           <p className="small" style={{ margin: 0 }}>Total: <b>{r0(itens.reduce((a, i) => a + n(i.kcal), 0))} kcal</b> · P {r0(itens.reduce((a, i) => a + n(i.prot_g), 0))} g</p>
           {erro && <p className="msg err">{erro}</p>}
           <button className="btn" onClick={salvar} disabled={busy}>{busy ? "Salvando…" : "Salvar"}</button>
-          {modo !== "manual" && <button className="link" onClick={limpar}>{modo === "busca" ? "Limpar lista" : "Recomeçar"}</button>}
+          {modo === "busca" && <button className="link" onClick={limpar}>Limpar lista</button>}
         </>
       )}
     </section>
