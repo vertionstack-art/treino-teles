@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { DAYNAME, DAYSHORT, DAYSUB, DURNAME, MUS, ORDEM, W, defReps, itens, parse, proximoDaFila, ytUrl, type Dia, type Tempo } from "@/lib/treinos";
 import { fmtCurta, fmtDuracao, hojeISO } from "@/lib/datas";
+import Demo from "@/components/demo";
 
 type Serie = { kg?: string; reps?: string; ok?: boolean };
 type Sessao = { d: Dia; t: Tempo; start: number; sets: Record<number, Serie[]>; simple: Record<number, boolean> };
@@ -62,6 +63,7 @@ export default function Treino() {
   const [now, setNow] = useState(() => Date.now());
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [demo, setDemo] = useState<string | null>(null);
   const arm = useRef({ fin: 0, can: 0 });
   const actx = useRef<AudioContext | null>(null);
   const wake = useRef<WakeLockSentinel | null>(null);
@@ -431,11 +433,13 @@ export default function Treino() {
                   </div>
                   {(!isWarm || it.restS > 0) && (
                     <div className="tools">
-                      {!isWarm && <a className="tool yt" href={ytUrl(it.name)} target="_blank" rel="noopener">Vídeo</a>}
+                      {!isWarm && <button className="tool tm" aria-expanded={demo === it.name} onClick={() => setDemo(demo === it.name ? null : it.name)}>{demo === it.name ? "Fechar" : "Ver execução"}</button>}
+                      {!isWarm && <a className="tool yt" href={ytUrl(it.name)} target="_blank" rel="noopener">YouTube</a>}
                       {it.restS > 0 && <button className="tool tm" onClick={() => startRest(it.restS, "Descanso · " + it.name)}>⏱ {it.restS}s</button>}
                       {session && !isWarm && <button className="tool tm" onClick={() => repetir(i)}>↻ Repetir</button>}
                     </div>
                   )}
+                  {demo === it.name && <Demo nome={it.name} />}
                   {body}
                 </div>
               </div>

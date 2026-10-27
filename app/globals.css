@@ -230,3 +230,10 @@ td.down { color: var(--danger); font-weight: 600 }
 .result b { font-weight: 600 }
 .result small { display: block; color: var(--muted); font-size: .75rem }
 .result .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums }
+
+/* Demonstração do exercício (vídeo da ExerciseDB ou fotos da free-exercise-db) */
+.demo { display: flex; flex-direction: column; gap: 4px; align-items: center }
+.demo video, .demo > img { width: 100%; max-width: 360px; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 12px }
+.demo-fotos { position: relative; width: 100%; max-width: 360px; aspect-ratio: 4 / 3; background: #fff; border-radius: 12px; overflow: hidden }
+.demo-fotos img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .25s }
+@media (prefers-reduced-motion: reduce) { .demo-fotos img { transition: none } }

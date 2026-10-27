@@ -32,6 +32,7 @@ Públicas ficam em `.env.production` (versionado). Segredos vão **só** no pain
 | Variável | Onde pegar |
 |---|---|
 | `ALLOWED_EMAILS` (opcional) | e-mails que podem entrar, separados por vírgula |
+| `RAPIDAPI_KEY` | rapidapi.com → ExerciseDB v2 (AscendAPI), plano Basic grátis: vídeos 3D dos exercícios em `lib/midia.ts` |
 
 Depois de cadastrar, faça um novo deploy (Deployments → Redeploy).
 
