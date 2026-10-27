@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { addDias, diasDaSemana, fmtCurta, fmtLonga, hojeISO } from "@/lib/datas";
 import { CATALOGO, CURTO_DIA, NOMES_DIA, atividadesDoDia, type Atividade } from "@/lib/semana";
 import { calcularSemana } from "@/lib/nutricao";
-import { DAYNAME, ORDEM, itens, proximoDaFila, type Dia, type Tempo } from "@/lib/treinos";
+import { DAYNAME, DAYSUB, ORDEM, itens, proximoDaFila, type Dia, type Tempo } from "@/lib/treinos";
 import Sheet from "@/components/sheet";
 import HorariosJiu from "@/components/jiujitsu";
 
@@ -127,7 +127,7 @@ export default function Hoje() {
               <button key={d} className={"day" + (d === hoje ? " today" : "") + (ok && d <= hoje ? " done" : "") + (ajustes[d] ? " ajustado" : "")} onClick={() => setAberto(d)}>
                 <b>{CURTO_DIA[new Date(d + "T12:00:00Z").getUTCDay()]}</b>
                 <small>{fmtCurta(d)}{ajustes[d] ? " · ajustado" : ""}</small>
-                {ats.map((a) => <span key={a.id}>{a.tipo === "musculacao" && fila[d] ? DAYNAME[fila[d]] : a.nome}</span>)}
+                {ats.map((a) => <span key={a.id}>{a.tipo === "musculacao" ? (fila[d] ? DAYNAME[fila[d]] : "Musculação · não registrada") : a.nome}</span>)}
               </button>
             );
           })}
@@ -221,6 +221,7 @@ function DiaSheet({ data, ajuste, sessoes, treino, peso, onClose, onSaved }: {
                     {!feito && <Link className="btn small" href={`/musculacao?dia=${letra}`}>Abrir {DAYNAME[letra]}</Link>}
                   </>
                 )}
+                {a.tipo === "musculacao" && !feito && data < hojeISO() && <TreinoPassado data={data} onSaved={onSaved} />}
                 {a.tipo === "jiujitsu" && <HorariosJiu data={data} aulas={sessoes.filter((s) => s.tipo === "jiujitsu")} peso={peso} onChange={onSaved} />}
                 {a.tipo === "esteira" && !feito && <Link className="btn small" href="/esteira">Registrar cardio</Link>}
               </div>
@@ -255,5 +256,23 @@ function DiaSheet({ data, ajuste, sessoes, treino, peso, onClose, onSaved }: {
         </>
       )}
     </Sheet>
+  );
+}
+
+// Dia que já passou sem treino salvo: marcar qual treino da fila foi feito (sem séries), para a fila andar
+function TreinoPassado({ data, onSaved }: { data: string; onSaved: () => void }) {
+  const [salvando, setSalvando] = useState(false);
+  async function marcar(d: Dia) {
+    setSalvando(true);
+    await createClient().from("workout_sessions").insert({ data, tipo: "musculacao", fonte: "manual", plano_dia: d, nome: `${DAYNAME[d]} · registrado depois` });
+    setSalvando(false); onSaved();
+  }
+  return (
+    <>
+      <p className="note" style={{ margin: 0 }}>Nenhum treino salvo neste dia. Se você treinou, marque qual foi para a fila seguir certa.</p>
+      <div className="seg" role="group" aria-label="Treino feito">
+        {ORDEM.map((d) => <button key={d} disabled={salvando} onClick={() => marcar(d)}>{d}<small>{DAYSUB[d]}</small></button>)}
+      </div>
+    </>
   );
 }
