@@ -1,69 +1,51 @@
-// Programa Superior/Inferior (ajuste do treinador em 13/10/2026, ver docs/ajustes-treinador-2026-10-13.md).
-// Fila contínua: Superior 1 → Inferior → Superior 2. Treino perdido não sai da fila.
-// Exercícios reaproveitados do antigo Full Body ABC (docs/treino.html).
+// Programa ABCDE do Lucas: A peito, B costas, C bíceps e tríceps, D perna, E ombro.
+// Fila contínua A → B → C → D → E. Treino perdido não sai da fila.
+// Objetivo: emagrecer, ganhar massa e força. O primeiro exercício de cada treino é o de força (faixa menor, descanso maior).
 // Linha: [nome, séries, descanso, dica, (grupo | "opt" | {músculo: séries})...]
 type Musc = Partial<Record<"q" | "p" | "c" | "pe" | "o" | "bi" | "tri", number>>;
 type Linha = [string, string, string, string, ...(string | Musc)[]];
-export type Dia = "U1" | "L" | "U2";
-export type Local = "rua" | "predio";
+export type Dia = "A" | "B" | "C" | "D" | "E";
 export type Tempo = "80" | "50" | "50s";
 
-export const ORDEM: Dia[] = ["U1", "L", "U2"];
+export const ORDEM: Dia[] = ["A", "B", "C", "D", "E"];
 
-// Versões completas (1h20). As de 50 min são derivadas abaixo.
-const BASE: Record<Local, Record<Dia, Linha[]>> = {
-  rua: {
-    U1: [["Aquecimento", "5 min esteira ou bike", "", "Mais 2 × 15 rotação externa com elástico"],
-      ["Supino reto com halteres", "4 × 8–10", "75s", "", { pe: 4 }],
-      ["Puxada frontal aberta", "4 × 10", "75s", "", { c: 4 }],
-      ["Remada unilateral com halter", "3 × 10 cada lado", "60s", "", { c: 3 }],
-      ["Desenvolvimento com halteres", "3 × 10", "60s", "", { o: 3 }],
-      ["Elevação lateral com halteres", "3 × 12–15", "45s", "", { o: 3 }],
-      ["Rosca direta com barra", "3 × 10", "60s", "", { bi: 3 }],
-      ["Tríceps corda no pulley", "3 × 12", "60s", "", { tri: 3 }]],
-    L: [["Aquecimento", "5 min bike + mobilidade de quadril", "", "Bike em vez de esteira para poupar o joelho"],
-      ["Leg press", "4 × 10", "90s", "Amplitude sem dor no joelho", { q: 4 }],
-      ["Agachamento búlgaro com halteres", "3 × 10 cada perna", "75s", "Ou agachamento unilateral", { q: 3 }],
-      ["Stiff com halteres", "3 × 10", "75s", "", { p: 3 }],
-      ["Mesa flexora", "3 × 12", "60s", "", { p: 3 }],
-      ["Elevação pélvica", "3 × 12", "60s", "Na máquina ou com barra apoiada no banco"],
-      ["Panturrilha no leg press", "3 × 15", "45s", ""]],
-    U2: [["Aquecimento", "5 min esteira ou bike", "", "Mais 2 × 15 pull-apart com elástico"],
-      ["Supino inclinado na máquina", "4 × 10", "75s", "", { pe: 4 }],
-      ["Remada baixa com triângulo", "4 × 10", "75s", "", { c: 4 }],
-      ["Puxada frontal pegada neutra", "3 × 10", "60s", "", { c: 3 }],
-      ["Crucifixo na máquina", "3 × 12", "60s", "", { pe: 3 }],
-      ["Face pull na polia", "3 × 15", "45s", "Ombro posterior, ajuda na postura e no muay thai", { o: 3 }],
-      ["Rosca martelo", "3 × 12", "60s", "", { bi: 3 }],
-      ["Tríceps testa com halter", "3 × 10", "60s", "", { tri: 3 }],
-      ["Abdominal deitado com perna estendida", "3 × máx.", "45s", "Abdômen só neste treino", "opt"]],
-  },
-  predio: {
-    U1: [["Aquecimento no espaldar", "5 min", "", "Mobilidade de ombro + 2 × 15 rotação externa com elástico"],
-      ["Supino reto com halteres no banco", "4 × 10–12", "75s", "", { pe: 4 }],
-      ["Puxada frontal aberta (polia alta)", "4 × 10", "75s", "", { c: 4 }],
-      ["Remada unilateral com halter no banco", "3 × 12 cada lado", "60s", "", { c: 3 }],
-      ["Desenvolvimento com halteres sentado", "3 × 10–12", "60s", "", { o: 3 }],
-      ["Elevação lateral com halteres", "3 × 15", "45s", "", { o: 3 }],
-      ["Rosca direta com barra W", "3 × 10", "60s", "", { bi: 3 }],
-      ["Tríceps corda na polia", "3 × 12", "60s", "", { tri: 3 }]],
-    L: [["Aquecimento no espaldar", "5 min", "", "Mobilidade de quadril e tornozelo"],
-      ["Agachamento goblet com halter", "4 × 12", "75s", "Halter mais pesado, segurando no peito", { q: 4 }],
-      ["Agachamento búlgaro (pé no banco)", "3 × 10 cada perna", "75s", "Com halteres", { q: 3 }],
-      ["Stiff com barra reta", "3 × 10", "75s", "Coloque anilhas na barra", { p: 3 }],
-      ["Elevação pélvica com barra no banco", "3 × 12", "75s", "Costas apoiadas no banco", { p: 3 }],
-      ["Cadeira extensora", "3 × 12", "60s", "Amplitude sem dor no joelho", { q: 3 }],
-      ["Panturrilha em pé no step com halter", "3 × 15", "45s", ""]],
-    U2: [["Aquecimento no espaldar", "5 min", "", "Mobilidade + 2 × 15 pull-apart com elástico"],
-      ["Supino inclinado com halteres", "4 × 10–12", "75s", "Banco inclinado", { pe: 4 }],
-      ["Remada baixa na polia (corda baixa)", "4 × 10", "75s", "", { c: 4 }],
-      ["Puxada fechada (polia alta)", "3 × 10", "60s", "", { c: 3 }],
-      ["Crucifixo com halteres no banco", "3 × 12", "60s", "", { pe: 3 }],
-      ["Face pull com corda (polia alta)", "3 × 15", "45s", "Ombro posterior, ajuda na postura e no muay thai", { o: 3 }],
-      ["Rosca martelo", "3 × 12", "60s", "", { bi: 3 }],
-      ["Tríceps testa com barra W", "3 × 10", "60s", "", { tri: 3 }],
-      ["Elevação de pernas no espaldar", "3 × máx.", "45s", "Abdômen só neste treino", "opt"]],
-  },
+// Versões completas. As de 50 min são derivadas abaixo.
+const BASE: Record<Dia, Linha[]> = {
+  A: [["Aquecimento", "5 min esteira", "", "Mais 2 × 15 rotação externa com elástico"],
+    ["Supino reto com barra", "4 × 6–8", "120s", "Exercício de força: carga alta, técnica limpa", { pe: 4 }],
+    ["Supino inclinado com halteres", "4 × 8–10", "90s", "", { pe: 4 }],
+    ["Supino declinado ou paralelas", "3 × 8–10", "75s", "", { pe: 3 }],
+    ["Crucifixo na máquina (peck deck)", "3 × 12", "60s", "", { pe: 3 }],
+    ["Crossover na polia", "3 × 12–15", "60s", "Aperte no fim do movimento", { pe: 3 }],
+    ["Abdominal na polia (crunch)", "3 × 15", "45s", "", "opt"]],
+  B: [["Aquecimento", "5 min esteira", "", "Mais 2 × 15 pull-apart com elástico"],
+    ["Remada curvada com barra", "4 × 6–8", "120s", "Exercício de força: coluna neutra", { c: 4 }],
+    ["Puxada frontal aberta", "4 × 8–10", "90s", "", { c: 4 }],
+    ["Remada baixa com triângulo", "3 × 10", "75s", "", { c: 3 }],
+    ["Remada unilateral com halter", "3 × 10 cada lado", "60s", "", { c: 3 }],
+    ["Pulldown com braço estendido", "3 × 12", "60s", "", { c: 3 }],
+    ["Prancha", "3 × 40s", "45s", "", "opt"]],
+  C: [["Aquecimento", "5 min esteira", "", "Mobilidade de cotovelo e punho"],
+    ["Rosca direta com barra", "4 × 6–8", "90s", "Exercício de força: sem roubar com o tronco", { bi: 4 }],
+    ["Tríceps testa com barra W", "4 × 6–8", "90s", "Exercício de força", { tri: 4 }],
+    ["Rosca alternada com halteres", "3 × 10", "60s", "", { bi: 3 }],
+    ["Tríceps corda no pulley", "3 × 12", "60s", "", { tri: 3 }],
+    ["Rosca martelo", "3 × 12", "60s", "", { bi: 3 }],
+    ["Tríceps francês com halter", "3 × 12", "60s", "", { tri: 3 }]],
+  D: [["Aquecimento", "5 min bike + mobilidade de quadril", "", "Bike poupa mais o joelho que a esteira"],
+    ["Agachamento livre", "4 × 6–8", "150s", "Exercício de força: desça até a coxa paralela", { q: 4 }],
+    ["Leg press", "4 × 10", "90s", "", { q: 4 }],
+    ["Stiff com barra", "3 × 8–10", "90s", "", { p: 3 }],
+    ["Cadeira extensora", "3 × 12", "60s", "", { q: 3 }],
+    ["Mesa flexora", "3 × 12", "60s", "", { p: 3 }],
+    ["Panturrilha em pé", "4 × 15", "45s", ""]],
+  E: [["Aquecimento", "5 min esteira", "", "Mais 2 × 15 rotação externa com elástico"],
+    ["Desenvolvimento com barra ou halteres", "4 × 6–8", "120s", "Exercício de força", { o: 4 }],
+    ["Elevação lateral com halteres", "4 × 12–15", "60s", "", { o: 4 }],
+    ["Elevação frontal com halteres", "3 × 12", "60s", "", { o: 3 }],
+    ["Crucifixo inverso (peck deck)", "3 × 15", "45s", "Ombro posterior, ajuda na postura e no jiu-jitsu", { o: 3 }],
+    ["Encolhimento com halteres", "3 × 12", "60s", ""],
+    ["Face pull na polia", "3 × 15", "45s", "", "opt"]],
 };
 
 const ehAquec = (l: Linha) => !/×/.test(l[1]);
@@ -105,31 +87,24 @@ function conjugado(b: Linha[]): Linha[] {
   return out;
 }
 
-export const W: Record<Local, Record<Tempo, Record<Dia, Linha[]>>> = Object.fromEntries(
-  (Object.keys(BASE) as Local[]).map((l) => [
-    l,
-    {
-      "80": BASE[l],
-      "50": Object.fromEntries(ORDEM.map((d) => [d, conjugado(BASE[l][d])])),
-      "50s": Object.fromEntries(ORDEM.map((d) => [d, simples(BASE[l][d])])),
-    },
-  ]),
-) as Record<Local, Record<Tempo, Record<Dia, Linha[]>>>;
+export const W: Record<Tempo, Record<Dia, Linha[]>> = {
+  "80": BASE,
+  "50": Object.fromEntries(ORDEM.map((d) => [d, conjugado(BASE[d])])) as Record<Dia, Linha[]>,
+  "50s": Object.fromEntries(ORDEM.map((d) => [d, simples(BASE[d])])) as Record<Dia, Linha[]>,
+};
 
-export const DURNAME: Record<Tempo, string> = { "80": "1h20", "50": "50 min conjugado", "50s": "50 min simples" };
-export const DAYNAME: Record<Dia, string> = { U1: "Superior 1", L: "Inferior (perna)", U2: "Superior 2" };
-export const DAYSHORT: Record<string, string> = { U1: "Sup. 1", L: "Inferior", U2: "Sup. 2", A: "ABC · A", B: "ABC · B", C: "ABC · C" };
-export const LOCNAME: Record<Local, string> = { rua: "Academia da rua", predio: "Academia do prédio" };
-// Séries por semana no Full Body ABC antigo (1h20, academia da rua), para comparar
-export const MUS: [keyof Musc, string, number][] = [
-  ["q", "Quadríceps", 11], ["p", "Posterior de coxa", 6], ["c", "Costas", 18], ["pe", "Peito", 14],
-  ["o", "Ombro", 12], ["bi", "Bíceps", 9], ["tri", "Tríceps", 9],
+export const DURNAME: Record<Tempo, string> = { "80": "Completo", "50": "50 min conjugado", "50s": "50 min simples" };
+export const DAYNAME: Record<Dia, string> = { A: "A · Peito", B: "B · Costas", C: "C · Bíceps e tríceps", D: "D · Perna", E: "E · Ombro" };
+export const DAYSHORT: Record<string, string> = { A: "A", B: "B", C: "C", D: "D", E: "E" };
+export const DAYSUB: Record<Dia, string> = { A: "peito", B: "costas", C: "braço", D: "perna", E: "ombro" };
+export const MUS: [keyof Musc, string][] = [
+  ["pe", "Peito"], ["c", "Costas"], ["bi", "Bíceps"], ["tri", "Tríceps"], ["q", "Quadríceps"], ["p", "Posterior de coxa"], ["o", "Ombro"],
 ];
 
 // Próximo da fila a partir do último treino feito
 export function proximoDaFila(ultimo: string | null | undefined): Dia {
   const i = ORDEM.indexOf(ultimo as Dia);
-  return i < 0 ? "U1" : ORDEM[(i + 1) % ORDEM.length];
+  return i < 0 ? "A" : ORDEM[(i + 1) % ORDEM.length];
 }
 
 export type Item = {
@@ -154,6 +129,6 @@ export function ytUrl(name: string) {
   const q = name.replace(/\s*\(.*?\)\s*/g, " ").trim() + " execução correta shorts";
   return "https://www.youtube.com/results?search_query=" + encodeURIComponent(q);
 }
-export function itens(l: Local, t: Tempo, d: Dia): Item[] {
-  return W[l][t][d].map(parse);
+export function itens(t: Tempo, d: Dia): Item[] {
+  return W[t][d].map(parse);
 }

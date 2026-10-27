@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Treino e Saúde",
     short_name: "Treino",
-    description: "Musculação, corrida, nutrição e saúde em um só lugar.",
+    description: "Musculação, jiu-jitsu, cardio, nutrição e saúde em um só lugar.",
     start_url: "/",
     scope: "/",
     display: "standalone",

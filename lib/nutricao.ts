@@ -36,8 +36,13 @@ export function calcularSemana(hoje: string, metaBase: number, consumoDia: Recor
   };
 }
 
-// MET aproximado para estimar calorias do muay thai
-export const MET_MUAYTHAI: Record<string, number> = { leve: 6, moderada: 8, forte: 10 };
+// MET aproximado para estimar calorias: jiu-jitsu (aula de 1h) e esteira por velocidade
+export const MET_JIUJITSU = 8;
+export function metEsteira(kmh: number, inclinacao: number) {
+  // Caminhada até 6,5 km/h; acima disso, trote/corrida. Cada 1% de inclinação soma cerca de 0,5 MET.
+  const base = kmh <= 6.5 ? 2 + kmh * 0.45 : kmh * 1.0;
+  return Math.round((base + inclinacao * 0.5) * 10) / 10;
+}
 export function kcalMet(met: number, pesoKg: number, minutos: number) {
   return Math.round(met * pesoKg * (minutos / 60));
 }

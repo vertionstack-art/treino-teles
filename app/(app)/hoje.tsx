@@ -6,12 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 import { addDias, diasDaSemana, fmtCurta, fmtLonga, hojeISO } from "@/lib/datas";
 import { CATALOGO, CURTO_DIA, NOMES_DIA, atividadesDoDia, type Atividade } from "@/lib/semana";
 import { calcularSemana } from "@/lib/nutricao";
-import { TIPO_CORRIDA } from "@/lib/corrida";
-import { DAYNAME, ORDEM, itens, proximoDaFila, type Dia, type Local, type Tempo } from "@/lib/treinos";
+import { DAYNAME, ORDEM, itens, proximoDaFila, type Dia, type Tempo } from "@/lib/treinos";
 import Sheet from "@/components/sheet";
+import HorariosJiu from "@/components/jiujitsu";
 
 type Sess = { id: string; data: string; tipo: string; kcal: number | null; duracao_s: number | null; distancia_m: number | null; nome: string | null; plano_dia: string | null };
-type Plano = { data: string; tipo: string; distancia_km: number; pace_alvo: string; descricao: string };
 
 export default function Hoje() {
   const hoje = hojeISO();
@@ -21,7 +20,7 @@ export default function Hoje() {
   const [sessoes, setSessoes] = useState<Sess[]>([]);
   const [consumo, setConsumo] = useState<Record<string, number>>({});
   const [meta, setMeta] = useState<number | null>(null);
-  const [planos, setPlanos] = useState<Plano[]>([]);
+  const [peso, setPeso] = useState<number | null>(null);
   const [aberto, setAberto] = useState<string | null>(null);
   const [carregado, setCarregado] = useState(false);
   const [ultimoAntes, setUltimoAntes] = useState<string | null>(null);
@@ -29,13 +28,13 @@ export default function Hoje() {
   const carregar = useCallback(async () => {
     const sb = createClient();
     const ini = dias[0], fim = dias[6];
-    const [p, dp, ws, fl, nt, rp, um] = await Promise.all([
+    const [p, dp, ws, fl, nt, bi, um] = await Promise.all([
       sb.from("profiles").select("nome").maybeSingle(),
       sb.from("day_plans").select("data, atividades").gte("data", ini).lte("data", fim),
       sb.from("workout_sessions").select("id, data, tipo, kcal, duracao_s, distancia_m, nome, plano_dia").gte("data", ini).lte("data", fim),
       sb.from("foods_log").select("data_hora, kcal").gte("data_hora", ini + "T03:00:00Z").lt("data_hora", addDias(fim, 1) + "T03:00:00Z"),
       sb.from("nutrition_targets").select("kcal_dia").lte("vigencia_inicio", hoje).order("vigencia_inicio", { ascending: false }).limit(1).maybeSingle(),
-      sb.from("run_plan").select("data, tipo, distancia_km, pace_alvo, descricao").gte("data", ini).lte("data", fim),
+      sb.from("bioimpedance").select("peso").order("data", { ascending: false }).limit(1).maybeSingle(),
       // Último treino da fila antes desta semana
       sb.from("workout_sessions").select("plano_dia").eq("tipo", "musculacao").in("plano_dia", ORDEM).lt("data", ini)
         .order("data", { ascending: false }).limit(1).maybeSingle(),
@@ -48,7 +47,7 @@ export default function Hoje() {
     for (const f of fl.data || []) { const d = hojeISO(new Date(f.data_hora)); c[d] = (c[d] || 0) + Number(f.kcal || 0); }
     setConsumo(c);
     setMeta(nt.data?.kcal_dia ?? null);
-    setPlanos((rp.data || []) as Plano[]);
+    setPeso(bi.data?.peso ? Number(bi.data.peso) : null);
     setCarregado(true);
   }, [dias, hoje]);
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -75,10 +74,7 @@ export default function Hoje() {
   const consumidoHoje = Math.round(consumo[hoje] || 0);
   const gastoHoje = sessoes.filter((s) => s.data === hoje).reduce((a, s) => a + (s.kcal || 0), 0);
 
-  async function registrarPilates(data: string) {
-    await createClient().from("workout_sessions").insert({ data, tipo: "pilates", fonte: "manual", nome: "Pilates (presença)", duracao_s: 3000 });
-    carregar();
-  }
+  const aulas = (data: string) => sessoes.filter((s) => s.data === data && s.tipo === "jiujitsu");
 
   return (
     <main className="wrap">
@@ -91,7 +87,7 @@ export default function Hoje() {
         <div className="t">Atividades do dia</div>
         <div className="acts">
           {atividadesHoje.map((a) => (
-            <AtividadeLinha key={a.id} a={a} data={hoje} feito={feito(hoje, a.tipo)} treino={fila[hoje]} plano={planos.find((p) => p.data === hoje)} onPilates={() => registrarPilates(hoje)} />
+            <AtividadeLinha key={a.id} a={a} data={hoje} feito={feito(hoje, a.tipo)} treino={fila[hoje]} aulas={aulas(hoje)} peso={peso} onChange={carregar} />
           ))}
         </div>
       </section>
@@ -131,7 +127,7 @@ export default function Hoje() {
               <button key={d} className={"day" + (d === hoje ? " today" : "") + (ok && d <= hoje ? " done" : "") + (ajustes[d] ? " ajustado" : "")} onClick={() => setAberto(d)}>
                 <b>{CURTO_DIA[new Date(d + "T12:00:00Z").getUTCDay()]}</b>
                 <small>{fmtCurta(d)}{ajustes[d] ? " · ajustado" : ""}</small>
-                {ats.map((a) => <span key={a.id}>{a.tipo === "musculacao" && fila[d] ? DAYNAME[fila[d]].replace(" (perna)", "") : a.nome}</span>)}
+                {ats.map((a) => <span key={a.id}>{a.tipo === "musculacao" && fila[d] ? DAYNAME[fila[d]] : a.nome}</span>)}
               </button>
             );
           })}
@@ -144,39 +140,37 @@ export default function Hoje() {
           data={aberto}
           ajuste={ajustes[aberto]}
           sessoes={sessoes.filter((s) => s.data === aberto)}
-          plano={planos.find((p) => p.data === aberto)}
           treino={fila[aberto]}
+          peso={peso}
           onClose={() => setAberto(null)}
           onSaved={() => { carregar(); }}
-          onPilates={() => registrarPilates(aberto)}
         />
       )}
     </main>
   );
 }
 
-function AtividadeLinha({ a, data, feito, plano, treino, onPilates }: { a: Atividade; data: string; feito: boolean; plano?: Plano; treino?: Dia; onPilates: () => void }) {
+function AtividadeLinha({ a, data, feito, treino, aulas, peso, onChange }: { a: Atividade; data: string; feito: boolean; treino?: Dia; aulas: Sess[]; peso: number | null; onChange: () => void }) {
   let acao: React.ReactNode = null;
-  if (feito) acao = <span className="chip ok">✓ Feito</span>;
+  if (a.tipo === "jiujitsu") acao = feito ? <span className="chip ok">✓ {aulas.length} {aulas.length === 1 ? "aula" : "aulas"}</span> : null;
+  else if (feito) acao = <span className="chip ok">✓ Feito</span>;
   else if (a.tipo === "musculacao") acao = <Link className="btn small" href={`/musculacao${treino ? `?dia=${treino}` : ""}`}>Iniciar</Link>;
-  else if (a.tipo === "corrida") acao = <Link className="btn small" href="/corrida">Ver plano</Link>;
-  else if (a.tipo === "pilates") acao = <button className="btn small" onClick={onPilates}>Fui</button>;
-  else if (a.tipo === "muaythai") acao = <Link className="btn small" href={`/atividades?novo=muaythai&data=${data}`}>Registrar</Link>;
-  const obs = a.tipo === "corrida" && plano ? `${TIPO_CORRIDA[plano.tipo] || plano.tipo} · ${plano.distancia_km} km · ${plano.pace_alvo}`
-    : a.tipo === "musculacao" && treino ? `${DAYNAME[treino]} (fila)` : a.obs;
+  else if (a.tipo === "esteira") acao = <Link className="btn small" href="/esteira">Registrar</Link>;
+  const obs = a.tipo === "musculacao" && treino ? `${DAYNAME[treino]} (fila)` : a.obs;
   return (
-    <div className={"act" + (feito ? " done" : "")}>
+    <div className={"act" + (feito ? " done" : "")} style={a.tipo === "jiujitsu" ? { flexWrap: "wrap" } : undefined}>
       <div style={{ minWidth: 0 }}>
         <b>{a.nome}</b>
         {obs && <span style={{ display: "block" }}>{obs}</span>}
       </div>
       {acao}
+      {a.tipo === "jiujitsu" && <div style={{ flexBasis: "100%" }}><HorariosJiu data={data} aulas={aulas} peso={peso} onChange={onChange} /></div>}
     </div>
   );
 }
 
-function DiaSheet({ data, ajuste, sessoes, plano, treino, onClose, onSaved, onPilates }: {
-  data: string; ajuste?: string[]; sessoes: Sess[]; plano?: Plano; treino?: Dia; onClose: () => void; onSaved: () => void; onPilates: () => void;
+function DiaSheet({ data, ajuste, sessoes, treino, peso, onClose, onSaved }: {
+  data: string; ajuste?: string[]; sessoes: Sess[]; treino?: Dia; peso: number | null; onClose: () => void; onSaved: () => void;
 }) {
   const ats = atividadesDoDia(data, ajuste);
   const [editando, setEditando] = useState(false);
@@ -184,9 +178,9 @@ function DiaSheet({ data, ajuste, sessoes, plano, treino, onClose, onSaved, onPi
   const [salvando, setSalvando] = useState(false);
   const dow = new Date(data + "T12:00:00Z").getUTCDay();
 
-  // Local e tempo da musculação: os últimos usados na tela de treino
+  // Versão da musculação: a última usada na tela de treino
   const pref = (() => {
-    try { return JSON.parse(localStorage.getItem("treino-state") || "") as { l: Local; t: Tempo }; } catch { return { l: "rua" as Local, t: "80" as Tempo }; }
+    try { return JSON.parse(localStorage.getItem("treino-state") || "") as { t: Tempo }; } catch { return { t: "80" as Tempo }; }
   })();
 
   async function salvar() {
@@ -213,27 +207,22 @@ function DiaSheet({ data, ajuste, sessoes, plano, treino, onClose, onSaved, onPi
               <div key={a.id} className="card">
                 <div className="between">
                   <b>{a.nome}</b>
-                  {feito ? <span className="chip ok">✓ Feito</span> : a.tipo === "pilates" ? <button className="btn small" onClick={onPilates}>Fui</button> : null}
+                  {feito && a.tipo !== "jiujitsu" ? <span className="chip ok">✓ Feito</span> : null}
                 </div>
                 {a.obs && <span className="note">{a.obs}</span>}
                 {letra && (
                   <>
                     <b className="small">{DAYNAME[letra]}{feito ? "" : " · próximo da fila"}</b>
                     <ol className="small" style={{ margin: 0, paddingLeft: 18 }}>
-                      {itens(pref.l || "rua", pref.t || "80", letra).filter((i) => i.sets > 0).map((i) => (
+                      {itens(pref.t || "80", letra).filter((i) => i.sets > 0).map((i) => (
                         <li key={i.name}>{i.name} · <span className="muted">{i.sx}</span></li>
                       ))}
                     </ol>
                     {!feito && <Link className="btn small" href={`/musculacao?dia=${letra}`}>Abrir {DAYNAME[letra]}</Link>}
                   </>
                 )}
-                {a.tipo === "corrida" && (plano ? (
-                  <p className="small" style={{ margin: 0 }}>
-                    <b>{TIPO_CORRIDA[plano.tipo] || plano.tipo}</b> · {plano.distancia_km} km · {plano.pace_alvo}<br />
-                    <span className="muted">{plano.descricao}</span>
-                  </p>
-                ) : <Link className="small" href="/corrida">Ver plano da corrida</Link>)}
-                {a.tipo === "muaythai" && !feito && <Link className="btn small" href={`/atividades?novo=muaythai&data=${data}`}>Registrar muay thai</Link>}
+                {a.tipo === "jiujitsu" && <HorariosJiu data={data} aulas={sessoes.filter((s) => s.tipo === "jiujitsu")} peso={peso} onChange={onSaved} />}
+                {a.tipo === "esteira" && !feito && <Link className="btn small" href="/esteira">Registrar cardio</Link>}
               </div>
             );
           })}

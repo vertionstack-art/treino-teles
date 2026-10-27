@@ -10,7 +10,7 @@ export default function Mais() {
       <section className="card links">
         <Link href="/corpo">Corpo <span>Bioimpedância e gráficos</span></Link>
         <Link href="/protocolo">Protocolo <span>Suplementos e receitas</span></Link>
-        <Link href="/atividades">Atividades <span>Muay thai, pilates e histórico</span></Link>
+        <Link href="/atividades">Atividades <span>Jiu-jitsu e histórico</span></Link>
       </section>
       <form action={signOut}>
         <button className="btn ghost" type="submit">Sair</button>

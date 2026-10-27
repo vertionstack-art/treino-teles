@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/", label: "Hoje", ic: "H" },
   { href: "/musculacao", label: "Treino", ic: "M" },
-  { href: "/corrida", label: "Corrida", ic: "C" },
+  { href: "/esteira", label: "Esteira", ic: "E" },
   { href: "/nutricao", label: "Nutrição", ic: "N" },
   { href: "/mais", label: "Mais", ic: "+" },
 ];

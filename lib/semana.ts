@@ -1,29 +1,34 @@
-// Semana padrão (especificação, seção 4) e catálogo de atividades para ajustar um dia.
+// Semana padrão do Lucas e catálogo de atividades para ajustar um dia.
 import { diaSemana } from "./datas";
 
-export type TipoAtividade = "musculacao" | "pilates" | "muaythai" | "corrida" | "descanso";
+export type TipoAtividade = "musculacao" | "jiujitsu" | "esteira" | "descanso";
 export type Atividade = { id: string; tipo: TipoAtividade; nome: string; obs?: string };
 
 export const CATALOGO: Record<string, Atividade> = {
   musculacao: { id: "musculacao", tipo: "musculacao", nome: "Musculação", obs: "Próximo treino da fila" },
-  pilates: { id: "pilates", tipo: "pilates", nome: "Pilates", obs: "Depois da musculação, ou 2h antes" },
-  muaythai: { id: "muaythai", tipo: "muaythai", nome: "Muay thai" },
-  corrida_leve: { id: "corrida_leve", tipo: "corrida", nome: "Corrida leve", obs: "Opcional, de manhã" },
-  corrida_moderada: { id: "corrida_moderada", tipo: "corrida", nome: "Corrida moderada", obs: "Depois da musculação, ou 6h de intervalo" },
-  corrida_longa: { id: "corrida_longa", tipo: "corrida", nome: "Corrida longa", obs: "Ritmo leve" },
+  jiujitsu: { id: "jiujitsu", tipo: "jiujitsu", nome: "Jiu-jitsu", obs: "Marque as aulas que você foi" },
+  esteira: { id: "esteira", tipo: "esteira", nome: "Cardio na esteira", obs: "Depois da musculação" },
   descanso: { id: "descanso", tipo: "descanso", nome: "Descanso" },
 };
 
 // Índice = getDay() (0 = domingo)
 export const PADRAO: string[][] = [
   ["descanso"],
-  ["musculacao", "pilates"],
-  ["muaythai", "corrida_leve"],
-  ["musculacao", "pilates"],
-  ["muaythai"],
-  ["musculacao", "corrida_moderada"],
-  ["corrida_longa"],
+  ["musculacao", "jiujitsu"],
+  ["musculacao", "esteira"],
+  ["musculacao", "jiujitsu"],
+  ["musculacao", "esteira"],
+  ["musculacao", "jiujitsu"],
+  ["descanso"],
 ];
+
+// Horários das aulas de jiu-jitsu por dia da semana (getDay()). Os mais frequentes vêm marcados como "usual".
+export const JIU_HORARIOS: Record<number, string[]> = {
+  1: ["10h", "19h", "21h"],
+  3: ["10h", "19h", "21h"],
+  5: ["10h", "20h30"],
+};
+export const JIU_USUAL = ["19h", "20h30"];
 
 export const NOMES_DIA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 export const CURTO_DIA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -32,4 +37,3 @@ export function atividadesDoDia(iso: string, ajuste?: string[] | null): Atividad
   const ids = ajuste && ajuste.length ? ajuste : PADRAO[diaSemana(iso)];
   return ids.map((id) => CATALOGO[id]).filter(Boolean);
 }
-

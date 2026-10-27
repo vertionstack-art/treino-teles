@@ -66,7 +66,7 @@ export default function Nutricao() {
     <main className="wrap">
       <header>
         <h1>Nutrição</h1>
-        <p className="sub">Registre pela busca na TACO ou na mão. Objetivo: recomposição, com meta moderada e proteína alta.</p>
+        <p className="sub">Registre pela busca na TACO ou na mão. Objetivo: emagrecer até 80 kg mantendo a força, com déficit moderado e proteína alta.</p>
       </header>
 
       <div className="between">

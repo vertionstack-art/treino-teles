@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { DAYNAME, DAYSHORT, DURNAME, LOCNAME, MUS, ORDEM, W, defReps, itens, parse, proximoDaFila, ytUrl, type Dia, type Local, type Tempo } from "@/lib/treinos";
+import { DAYNAME, DAYSHORT, DAYSUB, DURNAME, MUS, ORDEM, W, defReps, itens, parse, proximoDaFila, ytUrl, type Dia, type Tempo } from "@/lib/treinos";
 import { fmtCurta, fmtDuracao, hojeISO } from "@/lib/datas";
 
 type Serie = { kg?: string; reps?: string; ok?: boolean };
-type Sessao = { d: Dia; l: Local; t: Tempo; start: number; sets: Record<number, Serie[]>; simple: Record<number, boolean> };
-type Estado = { d: Dia; l: Local; t: Tempo };
+type Sessao = { d: Dia; t: Tempo; start: number; sets: Record<number, Serie[]>; simple: Record<number, boolean> };
+type Estado = { d: Dia; t: Tempo };
 type Ultima = Record<string, { date: string; sets: { kg: string; reps: string }[] }>;
-type Hist = { id: string; data: string; plano_dia: string | null; local: string | null; duracao_s: number | null; series: number | null; volume_kg: number | null; kcal: number | null; fc_media: number | null };
+type Hist = { id: string; data: string; plano_dia: string | null; duracao_s: number | null; series: number | null; volume_kg: number | null; kcal: number | null; fc_media: number | null };
 type Rest = { end: number; total: number; label: string; fired: boolean };
 
 function load<T>(k: string, d: T): T {
@@ -51,8 +51,8 @@ const fmt = (s: number) => { s = Math.max(0, Math.round(s)); return Math.floor(s
 
 export default function Treino() {
   const params = useSearchParams();
-  const [st, setSt] = useState<Estado>({ d: "U1", l: "rua", t: "80" });
-  const [proximo, setProximo] = useState<Dia>("U1");
+  const [st, setSt] = useState<Estado>({ d: "A", t: "80" });
+  const [proximo, setProximo] = useState<Dia>("A");
   const escolhido = useRef(false);
   const [session, setSession] = useState<Sessao | null>(null);
   const [ultima, setUltima] = useState<Ultima>({});
@@ -77,9 +77,9 @@ export default function Treino() {
   useEffect(() => {
     let s = load<Sessao | null>("treino-session", null);
     if (s && !ORDEM.includes(s.d)) s = null; // sessão do programa antigo
-    let e = load<Estado>("treino-state", { d: "U1", l: "rua", t: "80" });
-    if (!(W[e.l] && W[e.l][e.t]) || !ORDEM.includes(e.d)) e = { d: "U1", l: e.l in W ? e.l : "rua", t: e.t in DURNAME ? e.t : "80" };
-    if (s) { e = { d: s.d, l: s.l, t: s.t }; escolhido.current = true; }
+    let e = load<Estado>("treino-state", { d: "A", t: "80" });
+    if (!W[e.t] || !ORDEM.includes(e.d)) e = { d: "A", t: e.t in DURNAME ? e.t : "80" };
+    if (s) { e = { d: s.d, t: s.t }; escolhido.current = true; }
     else {
       const p = params.get("dia") as Dia | null;
       if (p && ORDEM.includes(p)) { e.d = p; escolhido.current = true; }
@@ -101,7 +101,7 @@ export default function Treino() {
         .limit(800),
       supabase
         .from("workout_sessions")
-        .select("id, data, plano_dia, local, duracao_s, series, volume_kg, kcal, fc_media")
+        .select("id, data, plano_dia, duracao_s, series, volume_kg, kcal, fc_media")
         .eq("tipo", "musculacao")
         .order("data", { ascending: false })
         .limit(15),
@@ -126,7 +126,7 @@ export default function Treino() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { carregar(); }, [carregar]);
 
-  const its = useMemo(() => itens(st.l, st.t, st.d), [st]);
+  const its = useMemo(() => itens(st.t, st.d), [st]);
   const salvarSessao = (s: Sessao | null) => { setSession(s); store("treino-session", s); };
   const mudar = (k: keyof Estado, v: string) => {
     const n = { ...st, [k]: v } as Estado;
@@ -199,9 +199,9 @@ export default function Treino() {
     const dur = Math.round((Date.now() - session.start) / 1000);
     const data = hojeISO(new Date(session.start));
     const dados = {
-      data, tipo: "musculacao", plano_dia: session.d, local: session.l, duracao_s: dur, series: nSets,
+      data, tipo: "musculacao", plano_dia: session.d, duracao_s: dur, series: nSets,
       volume_kg: Math.round(vol), inicio: new Date(session.start).toISOString(),
-      nome: `${DAYNAME[session.d]} · ${session.l === "rua" ? "Rua" : "Prédio"} · ${DURNAME[session.t]}`,
+      nome: `${DAYNAME[session.d]} · ${DURNAME[session.t]}`,
     };
     let sessionId: string | null = null;
     const { data: nova, error } = await supabase.from("workout_sessions").insert({ ...dados, fonte: "app" }).select("id").single();
@@ -289,7 +289,7 @@ export default function Treino() {
 
   // Render -------------------------------------------------------------------------
   const total = its.filter((i) => !i.opt).reduce((a, i) => a + i.sets, 0);
-  const lastSame = hist.find((h) => h.plano_dia === st.d && h.local === st.l);
+  const lastSame = hist.find((h) => h.plano_dia === st.d);
   const howto =
     st.t === "50" ? "Superséries: faça A1 e A2 alternando, descanse e repita. Depois B, depois C. Marque ✓ em cada série; o descanso começa sozinho."
       : st.t === "50s" ? "Versão para academia cheia: um exercício por vez, menos séries e só os exercícios principais. Marque ✓ em cada série; o descanso começa sozinho."
@@ -297,9 +297,9 @@ export default function Treino() {
 
   const volume = useMemo(() => {
     const tot: Record<string, number> = {};
-    for (const d of ORDEM) for (const it of W[st.l][st.t][d].map(parse)) if (it.mus) for (const [m, v] of Object.entries(it.mus)) tot[m] = (tot[m] || 0) + (v || 0);
+    for (const d of ORDEM) for (const it of W[st.t][d].map(parse)) if (it.mus) for (const [m, v] of Object.entries(it.mus)) tot[m] = (tot[m] || 0) + (v || 0);
     return tot;
-  }, [st.l, st.t]);
+  }, [st.t]);
 
   // Rótulo "Bloco X · par/trio" antes do primeiro exercício de cada bloco
   const rotulos = its.map((it, i) => {
@@ -315,7 +315,7 @@ export default function Treino() {
       <main className="wrap">
         <header>
           <h1>Musculação</h1>
-          <p className="sub">Superior e inferior em fila: o app sugere sempre o próximo. Treino perdido não sai da fila, só atrasa.</p>
+          <p className="sub">A, B, C, D e E em fila: o app sugere sempre o próximo. Treino perdido não sai da fila, só atrasa.</p>
         </header>
 
         {!session && (
@@ -323,16 +323,12 @@ export default function Treino() {
             <div className="seg" role="group" aria-label="Treino">
               {ORDEM.map((d) => (
                 <button key={d} aria-pressed={st.d === d} onClick={() => mudar("d", d)}>
-                  {DAYSHORT[d]}<small>{d === proximo ? "próximo" : d === "L" ? "perna" : "superior"}</small>
+                  {DAYSHORT[d]}<small>{d === proximo ? "próximo" : DAYSUB[d]}</small>
                 </button>
               ))}
             </div>
-            <div className="seg" role="group" aria-label="Local">
-              <button aria-pressed={st.l === "rua"} onClick={() => mudar("l", "rua")}>Academia da rua</button>
-              <button aria-pressed={st.l === "predio"} onClick={() => mudar("l", "predio")}>Academia do prédio</button>
-            </div>
             <div className="seg" role="group" aria-label="Tempo">
-              <button aria-pressed={st.t === "80"} onClick={() => mudar("t", "80")}>1h20<small>completo</small></button>
+              <button aria-pressed={st.t === "80"} onClick={() => mudar("t", "80")}>Completo<small>todas as séries</small></button>
               <button aria-pressed={st.t === "50"} onClick={() => mudar("t", "50")}>50 min<small>conjugado</small></button>
               <button aria-pressed={st.t === "50s"} onClick={() => mudar("t", "50s")}>50 min<small>simples</small></button>
             </div>
@@ -354,7 +350,7 @@ export default function Treino() {
         {session ? (
           <div className="live">
             <div>
-              <div className="lbl">{DAYNAME[st.d]} · {st.l === "rua" ? "Rua" : "Prédio"} · {DURNAME[st.t]}</div>
+              <div className="lbl">{DAYNAME[st.d]} · {DURNAME[st.t]}</div>
               <div className="clock">{fmtDuracao((now - session.start) / 1000)}</div>
             </div>
             <div className="acts2">
@@ -366,7 +362,6 @@ export default function Treino() {
           <div className="card">
             <div className="t">{DAYNAME[st.d]}</div>
             <div className="chips">
-              <span className="chip">{LOCNAME[st.l]}</span>
               <span className="chip">{DURNAME[st.t]}</span>
               <span className="chip">{total} séries</span>
               {lastSame && <span className="chip">Última vez: {fmtCurta(lastSame.data)}</span>}
@@ -420,7 +415,7 @@ export default function Treino() {
               }
             }
             return (
-              <div key={st.l + st.t + st.d + i} style={{ display: "contents" }}>
+              <div key={st.t + st.d + i} style={{ display: "contents" }}>
                 {label}
                 <div className={"ex" + (it.group ? " sup" : "") + (it.opt ? " opt" : "") + (allOk ? " done" : "")}>
                   <div className="hd">
@@ -453,7 +448,7 @@ export default function Treino() {
           <div className="in hist">
             {hist.length ? hist.map((h) => (
               <div key={h.id}>
-                <span>{fmtCurta(h.data)} · {h.plano_dia ? DAYSHORT[h.plano_dia] || h.plano_dia : "Treino"}{h.local === "predio" ? " · Prédio" : h.local === "rua" ? " · Rua" : ""}</span>
+                <span>{fmtCurta(h.data)} · {h.plano_dia ? DAYNAME[h.plano_dia as Dia] || h.plano_dia : "Treino"}</span>
                 <span>{fmtDuracao(h.duracao_s)} · {h.series ?? "–"} séries · {(h.volume_kg ?? 0).toLocaleString("pt-BR")} kg{h.kcal ? ` · ${h.kcal} kcal` : ""}</span>
               </div>
             )) : <p className="note" style={{ margin: 0 }}>Nenhum treino salvo ainda. Toque em Iniciar treino e, no fim, em Finalizar.</p>}
@@ -463,15 +458,12 @@ export default function Treino() {
         <details className="card">
           <summary><h2>Volume por semana</h2></summary>
           <div className="in">
-            <p className="note" style={{ marginTop: 0 }}>Séries por grupo muscular numa semana com os 3 treinos. &quot;ABC&quot; é o Full Body anterior (1h20, rua). O volume caiu de propósito: a musculação agora é acessória à corrida.</p>
+            <p className="note" style={{ marginTop: 0 }}>Séries por grupo muscular numa semana com os 5 treinos, na versão escolhida acima.</p>
             <div className="tbl">
               <table>
-                <thead><tr><th>Grupo</th><th>ABC</th><th>Agora</th></tr></thead>
+                <thead><tr><th>Grupo</th><th>Séries</th></tr></thead>
                 <tbody>
-                  {MUS.map(([m, lbl, antes]) => {
-                    const agora = volume[m] || 0;
-                    return <tr key={m}><td>{lbl}</td><td>{antes}</td><td>{agora}</td></tr>;
-                  })}
+                  {MUS.map(([m, lbl]) => <tr key={m}><td>{lbl}</td><td>{volume[m] || 0}</td></tr>)}
                 </tbody>
               </table>
             </div>
@@ -482,19 +474,15 @@ export default function Treino() {
           <summary><h2>Regras</h2></summary>
           <div className="in">
             <ul>
-              <li><b>Dois treinos no mesmo dia:</b> musculação antes da corrida, ou separe por 6h.</li>
-              <li><b>Pilates no mesmo dia:</b> musculação primeiro. Se o pilates for antes, deixe ao menos 2h.</li>
-              <li><b>Fila:</b> faltou um dia? Faça o treino que ficou para trás na próxima ida. Ele não é pulado, só atrasa.</li>
-              <li><b>Perna:</b> só uma vez por semana (treino Inferior), para joelho e tendão recuperarem com corrida e pilates.</li>
-              <li><b>Semana com 2 idas:</b> pelo menos um Superior e o Inferior.</li>
-              <li><b>Abdômen:</b> só no Superior 2. O pilates já trabalha o core.</li>
-              <li><b>Cardio da academia:</b> dispense nos dias de corrida ou muay thai.</li>
-              <li><b>Semana cheia ou cansado:</b> use a versão de 50 min. Conjugado mantém o volume; simples é para academia cheia ou dia de cansaço.</li>
+              <li><b>Fila:</b> A → B → C → D → E. Faltou um dia? Faça o treino que ficou para trás na próxima ida. Ele não é pulado, só atrasa.</li>
+              <li><b>Força:</b> o primeiro exercício de cada treino é o principal (faixa 6–8, descanso maior). Capriche na técnica e na carga.</li>
+              <li><b>Progressão:</b> quando fizer todas as séries no topo da faixa (ex.: 4×8 em &quot;6–8&quot;), aumente a carga.</li>
               <li><b>Intensidade:</b> termine cada série sentindo que daria para fazer mais 1 ou 2 repetições.</li>
-              <li><b>Progressão:</b> quando fizer todas as séries no topo da faixa (ex.: 4×10 em &quot;8–10&quot;), aumente a carga.</li>
-              <li><b>Objetivo:</b> a musculação é acessória à corrida e à composição corporal.</li>
+              <li><b>Esteira:</b> depois da musculação, não antes. Caminhada inclinada ou trote leve ajudam a emagrecer sem tirar força.</li>
+              <li><b>Jiu-jitsu no mesmo dia:</b> se der, musculação de manhã e jiu-jitsu à noite. Na véspera de um treino puxado de jiu-jitsu, evite levar a perna à falha.</li>
+              <li><b>Semana cheia ou cansado:</b> use a versão de 50 min. Conjugado mantém o volume; simples é para academia cheia ou dia de cansaço.</li>
               <li><b>Superséries (A1/A2):</b> uma série de A1, logo uma de A2, descanse e repita.</li>
-              <li><span className="warn">Prédio:</span> halteres leves. Quando ficar fácil, suba para 15 repetições ou use a barra com anilhas. Sem rack, evite carga pesada nas costas.</li>
+              <li><b>Emagrecer com força:</b> proteína alta e déficit moderado (veja Nutrição). Corte agressivo derruba a força e a massa magra.</li>
             </ul>
           </div>
         </details>

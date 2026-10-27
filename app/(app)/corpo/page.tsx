@@ -31,10 +31,16 @@ const magra = (e: Exame) => num(e.mlg) ?? (e.peso != null && e.gordura_kg != nul
 export default function Corpo() {
   const [exames, setExames] = useState<Exame[]>([]);
   const [metrica, setMetrica] = useState<keyof Exame>("peso");
+  const [perfil, setPerfil] = useState<{ altura_cm: number | null; peso_meta: number | null } | null>(null);
 
   const carregar = useCallback(async () => {
-    const { data } = await createClient().from("bioimpedance").select("*").order("data");
+    const sb = createClient();
+    const [{ data }, { data: p }] = await Promise.all([
+      sb.from("bioimpedance").select("*").order("data"),
+      sb.from("profiles").select("altura_cm, peso_meta").maybeSingle(),
+    ]);
     setExames((data || []) as Exame[]);
+    setPerfil(p ? { altura_cm: p.altura_cm != null ? Number(p.altura_cm) : null, peso_meta: p.peso_meta != null ? Number(p.peso_meta) : null } : null);
   }, []);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { carregar(); }, [carregar]);
@@ -51,6 +57,9 @@ export default function Corpo() {
   const pontos = exames.filter((e) => e[metrica] != null).map((e) => ({ data: e.data, v: Number(e[metrica]) }));
   const ult = exames[exames.length - 1];
   const prim = exames[0];
+  const meta = perfil?.peso_meta ?? null;
+  const pesoAtual = [...exames].reverse().find((e) => e.peso != null)?.peso;
+  const pesoInicial = exames.find((e) => e.peso != null)?.peso;
 
   async function abrirLaudo(p: string) {
     const u = await linkAssinado("laudos", p);
@@ -61,7 +70,7 @@ export default function Corpo() {
     <main className="wrap">
       <header>
         <h1>Corpo</h1>
-        <p className="sub">Bioimpedância a cada 2 meses. InBody/Biospace, altura 184 cm.</p>
+        <p className="sub">Peso e bioimpedância{perfil?.altura_cm ? ` · altura ${fmtNum(perfil.altura_cm)} cm` : ""}. Registre o peso sempre que se pesar.</p>
       </header>
 
       {ultimo?.alerta && (
@@ -71,7 +80,22 @@ export default function Corpo() {
         </div>
       )}
 
-      {ult && prim && (
+      {meta && pesoAtual != null && (
+        <section className="card">
+          <div className="between"><h2>Meta</h2><span className="chip">{fmtNum(meta)} kg</span></div>
+          <div className="stats">
+            <div className="stat"><b>{fmtNum(pesoAtual, 1)}</b><span>Peso atual</span></div>
+            <div className="stat"><b>{fmtNum(Math.max(0, Number(pesoAtual) - meta), 1)}</b><span>Faltam kg</span></div>
+            <div className="stat"><b>{fmtNum(Math.max(0, Number(pesoInicial) - Number(pesoAtual)), 1)}</b><span>Já perdeu kg</span></div>
+          </div>
+          {pesoInicial != null && Number(pesoInicial) > meta && (
+            <div className="bar"><i style={{ width: Math.min(100, Math.max(0, ((Number(pesoInicial) - Number(pesoAtual)) / (Number(pesoInicial) - meta)) * 100)) + "%" }} /></div>
+          )}
+          <p className="note" style={{ margin: 0 }}>Ritmo saudável: 0,5 a 1 kg por semana. Se a força cair nos treinos ou a massa magra cair na bioimpedância, suba um pouco as calorias.</p>
+        </section>
+      )}
+
+      {ult && prim && ult.gordura_kg != null && (
         <section className="card">
           <div className="between"><h2>Último exame</h2><span className="chip">{fmtDataCompleta(ult.data)}</span></div>
           <div className="stats">

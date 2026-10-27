@@ -6,7 +6,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     <main className="wrap" style={{ paddingTop: "calc(48px + env(safe-area-inset-top, 0px))" }}>
       <header>
         <h1>Treino e Saúde</h1>
-        <p className="sub">Entre para ver seus treinos, corridas, nutrição e exames.</p>
+        <p className="sub">Entre para ver seus treinos, nutrição e evolução.</p>
       </header>
       <LoginForm
         initialError={

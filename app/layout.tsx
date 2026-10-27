@@ -16,7 +16,7 @@ const body = Barlow({
 
 export const metadata: Metadata = {
   title: "Treino",
-  description: "Musculação, corrida, nutrição e saúde em um só lugar.",
+  description: "Musculação, jiu-jitsu, cardio, nutrição e saúde em um só lugar.",
   appleWebApp: { capable: true, title: "Treino", statusBarStyle: "default" },
   formatDetection: { telephone: false },
 };
